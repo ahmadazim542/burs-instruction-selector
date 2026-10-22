@@ -1,0 +1,11 @@
+Scaling benchmark: random trees, time per pass (best of 5 runs)
+
+depth      nodes  A:label_ms A:ns/node A:cost  B:label_ms B:ns/node B:cost
+8            405       0.004        9.9     443       0.004        9.9     374
+10          1587       0.015        9.5    1758       0.019       12.0    1491
+12          4986       0.056       11.2    5476       0.075       15.0    4652
+14         13229       0.172       13.0   14563       0.207       15.6   12340
+16         59790       0.800       13.4   66085       0.963       16.1   56059
+18        239710       3.533       14.7  265182       4.073       17.0  224498
+
+(label = burg-generated bottom-up pass + cover-cost backtrack; timings vary by machine)

@@ -48,7 +48,8 @@ grammars, then compiles everything into `build/burs`.
 | `./build/burs -D a=10 "a * a"` | set variable values used by the simulation check |
 | `./build/burs --rules` | rule tables (pattern, cost, instruction template) for both targets |
 | `./build/burs --suite` | summary table for the review sample expressions |
-| `./build/burs --exhaustive` | runs every tree of depth ≤ 2 (3,333 trees) through both targets |
+| `./build/burs --exhaustive` | runs every tree of depth ≤ 2 (3,333 trees) through both targets, and compares cost with a naive selector |
+| `./build/burs --bench` | times labeling on random trees from 405 to 240k nodes |
 | `./build/burs -i` | interactive: type expressions one per line, `quit` to exit |
 | `make test` | full regression suite (25 stored cases + suite + exhaustive) |
 | `make results` | regenerate the evidence files in [`results/`](results) |
@@ -176,6 +177,15 @@ document (Section 13). Target B, which was pending at Review 2, is now complete.
 Exhaustive check ([`results/exhaustive_check.txt`](results/exhaustive_check.txt)):
 all 3,333 trees of depth ≤ 2 over `{a, b, 3}` with ADD/SUB/MUL/LOAD are covered
 by both targets, and all 6,666 generated programs simulate to the IR value.
+Over the same trees, a naive one-instruction-per-node selector (same cost
+model) averages cost 7.26. BURS averages **6.88 on Target A (5.2% lower)** and
+**5.55 on Target B (23.6% lower)**. Target B gains more because its memory
+operands remove most `PUSH` instructions.
+
+Benchmark ([`results/benchmark.txt`](results/benchmark.txt)): labeling plus the
+cover-cost backtrack takes roughly 10–20 ns per node from 405 to 240k nodes,
+i.e. linear time, because burg precomputes all the dynamic programming into
+tables.
 
 ---
 
@@ -217,7 +227,7 @@ burs-instruction-selector/
 │   └── main/          main.c: command-line driver, suite, exhaustive check
 ├── tests/             cases.txt, expected/*.out, run_tests.sh, make_results.sh
 ├── results/           saved outputs: rule tables, sample runs, suite, test report
-├── docs/              Review 1 presentation & document, Review 2 document
+├── docs/              Review 1–3 documents (Review 3 report as .docx and .pdf), Review 1 slides
 └── third_party/burg/  the BURG code-generator generator (see below)
 ```
 

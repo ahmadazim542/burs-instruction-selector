@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "engine.h"
 #include "ir.h"
@@ -55,6 +56,7 @@ static void usage(FILE *out)
 		"       burs [options] -i               interactive: one expression per line\n"
 		"       burs [options] --suite          run the review sample expressions\n"
 		"       burs [options] --exhaustive     check every small tree (depth <= 2)\n"
+		"       burs [options] --bench          time labeling on growing random trees\n"
 		"       burs [options] --rules          print the target rule tables\n"
 		"\n"
 		"options:\n"
@@ -265,6 +267,19 @@ static int run_suite(const struct options *opt)
 }
 
 /*
+ * Baseline for comparison: a naive selector that emits one instruction per
+ * IR node (LOAD/LOADI or PUSH/PUSHI for leaves, the plain operator form for
+ * interior nodes), with the same cost model -- 1 per instruction, MUL 2.
+ * It never uses immediate or memory operand forms.
+ */
+static int naive_cost(NODEPTR_TYPE p)
+{
+	if (p == NULL)
+		return 0;
+	return (p->op == MUL ? 2 : 1) + naive_cost(p->left) + naive_cost(p->right);
+}
+
+/*
  * Exhaustive small-tree check: every tree of depth <= 2 built from the
  * leaves {a, b, 3} and all four operators is run through every selected
  * target, and the simulated result must equal the IR reference value.
@@ -277,7 +292,8 @@ static int run_exhaustive(const struct options *opt)
 	static NODEPTR_TYPE trees[MAXT];
 	static EmitCtx ctx;
 	int ntrees, prev, d, i, j, k, checked = 0, failures = 0;
-	int maxcost[NTARGETS] = { 0 }, nfail[NTARGETS] = { 0 };
+	int maxcost[NTARGETS] = { 0 }, nfail[NTARGETS] = { 0 }, better[NTARGETS] = { 0 };
+	long totcost[NTARGETS] = { 0 }, totnaive = 0;
 
 	trees[0] = mk_var("a");
 	trees[1] = mk_var("b");
@@ -297,7 +313,9 @@ static int run_exhaustive(const struct options *opt)
 
 	for (i = 0; i < ntrees; i++) {
 		long long expect = ir_eval(trees[i]);
+		int naive = naive_cost(trees[i]);
 		ir_number(trees[i]);
+		totnaive += naive;
 		for (k = 0; k < NTARGETS; k++) {
 			struct run r;
 			if (!opt->use[k])
@@ -306,6 +324,8 @@ static int run_exhaustive(const struct options *opt)
 			checked++;
 			if (r.cost > maxcost[k])
 				maxcost[k] = r.cost;
+			totcost[k] += r.cost;
+			better[k] += r.cost < naive;
 			if (!r.covered || !r.sim_ok) {
 				nfail[k]++;
 				if (failures++ < 10) {
@@ -322,8 +342,84 @@ static int run_exhaustive(const struct options *opt)
 		if (opt->use[k])
 			printf("    target %s: %d failures, max cover cost %d\n",
 			       all_targets[k]->id, nfail[k], maxcost[k]);
+	printf("Cost vs naive one-instruction-per-node selection (same cost model):\n");
+	printf("    naive baseline : average cost %.2f\n", (double)totnaive / ntrees);
+	for (k = 0; k < NTARGETS; k++)
+		if (opt->use[k])
+			printf("    BURS target %s : average cost %.2f  (%.1f%% lower; cheaper on %d of %d trees)\n",
+			       all_targets[k]->id, (double)totcost[k] / ntrees,
+			       100.0 * (totnaive - totcost[k]) / totnaive, better[k], ntrees);
 	printf("%d target runs, %d failures\n", checked, failures);
 	return failures ? EXIT_CHECK : 0;
+}
+
+/*
+ * Scaling benchmark: random balanced trees of growing size; time the
+ * bottom-up labeling pass and the cover-cost backtrack.  Both should be
+ * linear in the number of nodes.
+ */
+static NODEPTR_TYPE random_tree(int depth, unsigned *seed)
+{
+	static const char *const names[] = { "a", "b", "c", "d" };
+	unsigned r;
+
+	*seed = *seed * 1103515245u + 12345u;
+	r = (*seed >> 16) & 0x7fff;
+	if (depth == 0)
+		return r % 3 == 0 ? mk_const(r % 10) : mk_var(names[r % 4]);
+	if (r % 8 == 0)
+		return mk_load(random_tree(depth - 1, seed));
+	switch (r % 3) {
+	case 0:  return mk_add(random_tree(depth - 1, seed), random_tree(depth - 1, seed));
+	case 1:  return mk_sub(random_tree(depth - 1, seed), random_tree(depth - 1, seed));
+	default: return mk_mul(random_tree(depth - 1, seed), random_tree(depth - 1, seed));
+	}
+}
+
+static int count_nodes(NODEPTR_TYPE p)
+{
+	return p == NULL ? 0 : 1 + count_nodes(p->left) + count_nodes(p->right);
+}
+
+static int run_bench(const struct options *opt)
+{
+	int depth, k;
+
+	printf("Scaling benchmark: random trees, time per pass (best of 5 runs)\n\n");
+	printf("%-6s %9s", "depth", "nodes");
+	for (k = 0; k < NTARGETS; k++)
+		if (opt->use[k])
+			printf("  %s:label_ms %s:ns/node %s:cost", all_targets[k]->id,
+			       all_targets[k]->id, all_targets[k]->id);
+	printf("\n");
+
+	for (depth = 8; depth <= 18; depth += 2) {
+		unsigned seed = 42;
+		NODEPTR_TYPE tree = random_tree(depth, &seed);
+		int nodes = count_nodes(tree);
+
+		printf("%-6d %9d", depth, nodes);
+		for (k = 0; k < NTARGETS; k++) {
+			double best = -1;
+			int run, cost = 0;
+			if (!opt->use[k])
+				continue;
+			for (run = 0; run < 5; run++) {
+				clock_t t0 = clock();
+				double ms;
+				burs_label(all_targets[k], tree);
+				cost = burs_cost(all_targets[k], tree, all_targets[k]->start_nt);
+				ms = 1000.0 * (double)(clock() - t0) / CLOCKS_PER_SEC;
+				if (best < 0 || ms < best)
+					best = ms;
+			}
+			printf("  %10.3f %10.1f %7d", best, best * 1e6 / nodes, cost);
+		}
+		printf("\n");
+		freetree(tree);
+	}
+	printf("\n(label = burg-generated bottom-up pass + cover-cost backtrack; timings vary by machine)\n");
+	return 0;
 }
 
 static int interactive(const struct options *opt)
@@ -370,7 +466,7 @@ int main(int argc, char **argv)
 {
 	struct options opt;
 	const char *expr = NULL;
-	int i, mode_rules = 0, mode_suite = 0, mode_inter = 0, mode_exh = 0;
+	int i, mode_rules = 0, mode_suite = 0, mode_inter = 0, mode_exh = 0, mode_bench = 0;
 
 	memset(&opt, 0, sizeof opt);
 	for (i = 0; i < NTARGETS; i++)
@@ -391,6 +487,8 @@ int main(int argc, char **argv)
 			mode_suite = 1;
 		} else if (strcmp(a, "--exhaustive") == 0) {
 			mode_exh = 1;
+		} else if (strcmp(a, "--bench") == 0) {
+			mode_bench = 1;
 		} else if (strcmp(a, "-t") == 0 && i + 1 < argc) {
 			const char *t = argv[++i];
 			int k, both = strcmp(t, "both") == 0, found = 0;
@@ -435,6 +533,8 @@ int main(int argc, char **argv)
 		return run_suite(&opt);
 	if (mode_exh)
 		return run_exhaustive(&opt);
+	if (mode_bench)
+		return run_bench(&opt);
 	if (mode_inter)
 		return interactive(&opt);
 	if (expr == NULL) {

@@ -10,6 +10,7 @@ mkdir -p "$OUT"
 $BURS --rules                >"$OUT/rule_tables.txt"
 $BURS --suite                >"$OUT/suite_summary.txt"
 $BURS --exhaustive           >"$OUT/exhaustive_check.txt"
+$BURS --bench                >"$OUT/benchmark.txt"
 sh tests/run_tests.sh        >"$OUT/test_report.txt" 2>&1
 
 : >"$OUT/sample_runs.txt"

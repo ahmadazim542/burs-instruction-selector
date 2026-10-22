@@ -1,0 +1,71 @@
+Expression   : load(a) + 4
+IR (prefix)  : ADD(LOAD(VAR a), CONST 4)
+IR tree      :
+    ADD   [n4]
+    |-- LOAD   [n2]
+    |   `-- VAR a   [n1]
+    `-- CONST 4   [n3]
+Test values  : a=2, mem[x]=1000+x
+Reference    : 1006
+
+========================================================================
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+========================================================================
+BURS cost table (bottom-up labeling, best rule per nonterminal):
+    node               NT    best rule              cost
+    ----               --    ---------              ----
+    n1 VAR a           reg   reg: VAR                  1
+    n2 LOAD            reg   reg: LOAD(reg)            2
+    n3 CONST 4         reg   reg: CONST                1
+                       imm   imm: CONST                0
+    n4 ADD             reg   reg: ADD(reg,imm)         3
+
+Selected cover (backtracked from root, goal 'reg'):
+    reg: ADD(reg,imm)                       n4    cost 1   ADDI  rd, ra, #k
+    . reg: LOAD(reg)                        n2    cost 1   LOAD  rd, [rs]
+    . . reg: VAR                            n1    cost 1   LOAD  rd, [var]
+    . imm: CONST                            n3    cost 0   (operand #k, no code)
+
+Generated code:
+      1  LOAD r0,[a]
+      2  LOAD r1,[r0]
+      3  ADDI r2,r1,#4
+
+Total cover cost : 3   (3 instructions)
+Simulation       : result 1006, reference 1006   OK
+
+========================================================================
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+========================================================================
+BURS cost table (bottom-up labeling, best rule per nonterminal):
+    node               NT    best rule              cost
+    ----               --    ---------              ----
+    n1 VAR a           stk   stk: mem                  1
+                       mem   mem: VAR                  0
+    n2 LOAD            stk   stk: LOAD(stk)            2
+    n3 CONST 4         stk   stk: imm                  1
+                       imm   imm: CONST                0
+    n4 ADD             stk   stk: ADD(stk,imm)         3
+
+Selected cover (backtracked from root, goal 'stk'):
+    stk: ADD(stk,imm)                       n4    cost 1   ADDI  #k
+    . stk: LOAD(stk)                        n2    cost 1   LOAD
+    . . stk: mem                            n1    cost 1   PUSH  [var]
+    . . . mem: VAR                          n1    cost 0   (operand [var], no code)
+    . imm: CONST                            n3    cost 0   (operand #k, no code)
+
+Generated code:
+      1  PUSH [a]
+      2  LOAD
+      3  ADDI #4
+
+Total cover cost : 3   (3 instructions)
+Simulation       : result 1006, reference 1006   OK
+
+------------------------------------------------------------------------
+Retargeting summary (same IR tree, same BURS engine):
+    target   instrs   cost   check
+    A        3        3      OK
+    B        3        3      OK
+------------------------------------------------------------------------
+exit=0

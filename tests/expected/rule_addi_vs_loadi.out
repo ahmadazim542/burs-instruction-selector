@@ -1,0 +1,24 @@
+Expression   : a + 7
+IR (prefix)  : ADD(VAR a, CONST 7)
+IR tree      :
+    ADD   [n3]
+    |-- VAR a   [n1]
+    `-- CONST 7   [n2]
+Test values  : a=2, mem[x]=1000+x
+Reference    : 9
+
+========================================================================
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+========================================================================
+Selected cover (backtracked from root, goal 'reg'):
+    reg: ADD(reg,imm)                       n3    cost 1   ADDI  rd, ra, #k
+    . reg: VAR                              n1    cost 1   LOAD  rd, [var]
+    . imm: CONST                            n2    cost 0   (operand #k, no code)
+
+Generated code:
+      1  LOAD r0,[a]
+      2  ADDI r1,r0,#7
+
+Total cover cost : 2   (2 instructions)
+Simulation       : result 9, reference 9   OK
+exit=0

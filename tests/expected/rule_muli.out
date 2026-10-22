@@ -1,0 +1,25 @@
+Expression   : a * 5
+IR (prefix)  : MUL(VAR a, CONST 5)
+IR tree      :
+    MUL   [n3]
+    |-- VAR a   [n1]
+    `-- CONST 5   [n2]
+Test values  : a=2, mem[x]=1000+x
+Reference    : 10
+
+========================================================================
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+========================================================================
+Selected cover (backtracked from root, goal 'stk'):
+    stk: MUL(stk,imm)                       n3    cost 2   MULI  #k
+    . stk: mem                              n1    cost 1   PUSH  [var]
+    . . mem: VAR                            n1    cost 0   (operand [var], no code)
+    . imm: CONST                            n2    cost 0   (operand #k, no code)
+
+Generated code:
+      1  PUSH [a]
+      2  MULI #5
+
+Total cover cost : 3   (2 instructions)
+Simulation       : result 10, reference 10   OK
+exit=0

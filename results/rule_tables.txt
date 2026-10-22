@@ -1,0 +1,31 @@
+Target A: 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+    #   rule (pattern)           cost instruction template
+    --  --------------           ---- --------------------
+    1   reg: VAR                    1 LOAD  rd, [var]
+    2   reg: CONST                  1 LOADI rd, #k
+    3   imm: CONST                  0 (operand #k, no code)
+    4   reg: LOAD(reg)              1 LOAD  rd, [rs]
+    5   reg: ADD(reg,reg)           1 ADD   rd, ra, rb
+    6   reg: ADD(reg,imm)           1 ADDI  rd, ra, #k
+    7   reg: SUB(reg,reg)           1 SUB   rd, ra, rb
+    8   reg: SUB(reg,imm)           1 SUBI  rd, ra, #k
+    9   reg: MUL(reg,reg)           2 MUL   rd, ra, rb
+
+Target B: zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+    #   rule (pattern)           cost instruction template
+    --  --------------           ---- --------------------
+    1   stk: mem                    1 PUSH  [var]
+    2   stk: imm                    1 PUSHI #k
+    3   mem: VAR                    0 (operand [var], no code)
+    4   imm: CONST                  0 (operand #k, no code)
+    5   stk: LOAD(stk)              1 LOAD
+    6   stk: ADD(stk,stk)           1 ADD
+    7   stk: ADD(stk,mem)           1 ADDM  [var]
+    8   stk: ADD(stk,imm)           1 ADDI  #k
+    9   stk: SUB(stk,stk)           1 SUB
+    10  stk: SUB(stk,mem)           1 SUBM  [var]
+    11  stk: SUB(stk,imm)           1 SUBI  #k
+    12  stk: MUL(stk,stk)           2 MUL
+    13  stk: MUL(stk,mem)           2 MULM  [var]
+    14  stk: MUL(stk,imm)           2 MULI  #k
+

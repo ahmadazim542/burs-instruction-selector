@@ -1,0 +1,24 @@
+Expression   : a - 1
+IR (prefix)  : SUB(VAR a, CONST 1)
+IR tree      :
+    SUB   [n3]
+    |-- VAR a   [n1]
+    `-- CONST 1   [n2]
+Test values  : a=2, mem[x]=1000+x
+Reference    : 1
+
+========================================================================
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+========================================================================
+Selected cover (backtracked from root, goal 'reg'):
+    reg: SUB(reg,imm)                       n3    cost 1   SUBI  rd, ra, #k
+    . reg: VAR                              n1    cost 1   LOAD  rd, [var]
+    . imm: CONST                            n2    cost 0   (operand #k, no code)
+
+Generated code:
+      1  LOAD r0,[a]
+      2  SUBI r1,r0,#1
+
+Total cover cost : 2   (2 instructions)
+Simulation       : result 1, reference 1   OK
+exit=0

@@ -1,0 +1,57 @@
+Expression   : [[a] + 1]
+IR (prefix)  : LOAD(ADD(LOAD(VAR a), CONST 1))
+IR tree      :
+    LOAD   [n5]
+    `-- ADD   [n4]
+        |-- LOAD   [n2]
+        |   `-- VAR a   [n1]
+        `-- CONST 1   [n3]
+Test values  : a=2, mem[x]=1000+x
+Reference    : 2003
+
+========================================================================
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+========================================================================
+Selected cover (backtracked from root, goal 'reg'):
+    reg: LOAD(reg)                          n5    cost 1   LOAD  rd, [rs]
+    . reg: ADD(reg,imm)                     n4    cost 1   ADDI  rd, ra, #k
+    . . reg: LOAD(reg)                      n2    cost 1   LOAD  rd, [rs]
+    . . . reg: VAR                          n1    cost 1   LOAD  rd, [var]
+    . . imm: CONST                          n3    cost 0   (operand #k, no code)
+
+Generated code:
+      1  LOAD r0,[a]
+      2  LOAD r1,[r0]
+      3  ADDI r2,r1,#1
+      4  LOAD r3,[r2]
+
+Total cover cost : 4   (4 instructions)
+Simulation       : result 2003, reference 2003   OK
+
+========================================================================
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+========================================================================
+Selected cover (backtracked from root, goal 'stk'):
+    stk: LOAD(stk)                          n5    cost 1   LOAD
+    . stk: ADD(stk,imm)                     n4    cost 1   ADDI  #k
+    . . stk: LOAD(stk)                      n2    cost 1   LOAD
+    . . . stk: mem                          n1    cost 1   PUSH  [var]
+    . . . . mem: VAR                        n1    cost 0   (operand [var], no code)
+    . . imm: CONST                          n3    cost 0   (operand #k, no code)
+
+Generated code:
+      1  PUSH [a]
+      2  LOAD
+      3  ADDI #1
+      4  LOAD
+
+Total cover cost : 4   (4 instructions)
+Simulation       : result 2003, reference 2003   OK
+
+------------------------------------------------------------------------
+Retargeting summary (same IR tree, same BURS engine):
+    target   instrs   cost   check
+    A        4        4      OK
+    B        4        4      OK
+------------------------------------------------------------------------
+exit=0

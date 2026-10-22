@@ -1,0 +1,3 @@
+Expression   : a + * b
+ERROR: invalid expression, column 5: expected a number, variable, '(' or '[' but found '*'
+exit=2

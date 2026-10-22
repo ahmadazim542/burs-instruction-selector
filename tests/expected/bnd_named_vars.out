@@ -1,0 +1,59 @@
+Expression   : base + count * 8
+IR (prefix)  : ADD(VAR base, MUL(VAR count, CONST 8))
+IR tree      :
+    ADD   [n5]
+    |-- VAR base   [n1]
+    `-- MUL   [n4]
+        |-- VAR count   [n2]
+        `-- CONST 8   [n3]
+Test values  : base=100 count=10, mem[x]=1000+x
+Reference    : 180
+
+========================================================================
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+========================================================================
+Selected cover (backtracked from root, goal 'reg'):
+    reg: ADD(reg,reg)                       n5    cost 1   ADD   rd, ra, rb
+    . reg: VAR                              n1    cost 1   LOAD  rd, [var]
+    . reg: MUL(reg,reg)                     n4    cost 2   MUL   rd, ra, rb
+    . . reg: VAR                            n2    cost 1   LOAD  rd, [var]
+    . . reg: CONST                          n3    cost 1   LOADI rd, #k
+
+Generated code:
+      1  LOAD r0,[base]
+      2  LOAD r1,[count]
+      3  LOADI r2,#8
+      4  MUL r3,r1,r2
+      5  ADD r4,r0,r3
+
+Total cover cost : 6   (5 instructions)
+Simulation       : result 180, reference 180   OK
+
+========================================================================
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+========================================================================
+Selected cover (backtracked from root, goal 'stk'):
+    stk: ADD(stk,stk)                       n5    cost 1   ADD
+    . stk: mem                              n1    cost 1   PUSH  [var]
+    . . mem: VAR                            n1    cost 0   (operand [var], no code)
+    . stk: MUL(stk,imm)                     n4    cost 2   MULI  #k
+    . . stk: mem                            n2    cost 1   PUSH  [var]
+    . . . mem: VAR                          n2    cost 0   (operand [var], no code)
+    . . imm: CONST                          n3    cost 0   (operand #k, no code)
+
+Generated code:
+      1  PUSH [base]
+      2  PUSH [count]
+      3  MULI #8
+      4  ADD
+
+Total cover cost : 5   (4 instructions)
+Simulation       : result 180, reference 180   OK
+
+------------------------------------------------------------------------
+Retargeting summary (same IR tree, same BURS engine):
+    target   instrs   cost   check
+    A        5        6      OK
+    B        4        5      OK
+------------------------------------------------------------------------
+exit=0

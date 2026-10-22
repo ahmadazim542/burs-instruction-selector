@@ -1,0 +1,4 @@
+Exhaustive check: 3333 trees (depth <= 2 over a, b, 3 with ADD/SUB/MUL/LOAD)
+    target A: 0 failures, max cover cost 10
+    target B: 0 failures, max cover cost 8
+6666 target runs, 0 failures

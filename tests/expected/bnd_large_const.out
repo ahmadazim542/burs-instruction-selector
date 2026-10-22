@@ -1,0 +1,56 @@
+Expression   : a * 1000000 - 999999
+IR (prefix)  : SUB(MUL(VAR a, CONST 1000000), CONST 999999)
+IR tree      :
+    SUB   [n5]
+    |-- MUL   [n3]
+    |   |-- VAR a   [n1]
+    |   `-- CONST 1000000   [n2]
+    `-- CONST 999999   [n4]
+Test values  : a=2, mem[x]=1000+x
+Reference    : 1000001
+
+========================================================================
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+========================================================================
+Selected cover (backtracked from root, goal 'reg'):
+    reg: SUB(reg,imm)                       n5    cost 1   SUBI  rd, ra, #k
+    . reg: MUL(reg,reg)                     n3    cost 2   MUL   rd, ra, rb
+    . . reg: VAR                            n1    cost 1   LOAD  rd, [var]
+    . . reg: CONST                          n2    cost 1   LOADI rd, #k
+    . imm: CONST                            n4    cost 0   (operand #k, no code)
+
+Generated code:
+      1  LOAD r0,[a]
+      2  LOADI r1,#1000000
+      3  MUL r2,r0,r1
+      4  SUBI r3,r2,#999999
+
+Total cover cost : 5   (4 instructions)
+Simulation       : result 1000001, reference 1000001   OK
+
+========================================================================
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+========================================================================
+Selected cover (backtracked from root, goal 'stk'):
+    stk: SUB(stk,imm)                       n5    cost 1   SUBI  #k
+    . stk: MUL(stk,imm)                     n3    cost 2   MULI  #k
+    . . stk: mem                            n1    cost 1   PUSH  [var]
+    . . . mem: VAR                          n1    cost 0   (operand [var], no code)
+    . . imm: CONST                          n2    cost 0   (operand #k, no code)
+    . imm: CONST                            n4    cost 0   (operand #k, no code)
+
+Generated code:
+      1  PUSH [a]
+      2  MULI #1000000
+      3  SUBI #999999
+
+Total cover cost : 4   (3 instructions)
+Simulation       : result 1000001, reference 1000001   OK
+
+------------------------------------------------------------------------
+Retargeting summary (same IR tree, same BURS engine):
+    target   instrs   cost   check
+    A        4        5      OK
+    B        3        4      OK
+------------------------------------------------------------------------
+exit=0

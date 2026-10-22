@@ -1,0 +1,192 @@
+%{
+/*
+ * targetB.gr - Target B: zero-address stack machine with memory and
+ * immediate operand forms.
+ *
+ *   PUSH  [var]          push value of variable
+ *   PUSHI #k             push k
+ *   LOAD                 pop a, push memory[a]
+ *   ADD                  pop b, pop a, push a + b   (also SUB, MUL)
+ *   ADDM  [var]          top <- top + var           (also SUBM, MULM)
+ *   ADDI  #k             top <- top + k             (also SUBI, MULI)
+ *
+ * Costs: every instruction 1 except the three multiplies, which are 2.
+ * Same IR, same %term numbering and same BURS engine as Target A; only
+ * this file is different.
+ */
+#include <stdlib.h>
+#include <string.h>
+
+#include "target.h"
+%}
+
+%start stk
+%term CONST=1 VAR=2 ADD=3 SUB=4 MUL=5 LOAD=6
+
+%%
+stk:	mem		= 1 (1);
+stk:	imm		= 2 (1);
+mem:	VAR		= 3 (0);
+imm:	CONST		= 4 (0);
+stk:	LOAD(stk)	= 5 (1);
+stk:	ADD(stk,stk)	= 6 (1);
+stk:	ADD(stk,mem)	= 7 (1);
+stk:	ADD(stk,imm)	= 8 (1);
+stk:	SUB(stk,stk)	= 9 (1);
+stk:	SUB(stk,mem)	= 10 (1);
+stk:	SUB(stk,imm)	= 11 (1);
+stk:	MUL(stk,stk)	= 12 (2);
+stk:	MUL(stk,mem)	= 13 (2);
+stk:	MUL(stk,imm)	= 14 (2);
+%%
+
+static const char *const ntB[] = {
+	[burmB_stk_NT] = "stk",
+	[burmB_mem_NT] = "mem",
+	[burmB_imm_NT] = "imm",
+};
+
+/* Indexed by external rule number; costs mirror the grammar above. */
+static const RuleInfo rulesB[] = {
+	{ NULL, 0, NULL },
+	{ "stk: mem",          1, "PUSH  [var]" },
+	{ "stk: imm",          1, "PUSHI #k" },
+	{ "mem: VAR",          0, "(operand [var], no code)" },
+	{ "imm: CONST",        0, "(operand #k, no code)" },
+	{ "stk: LOAD(stk)",    1, "LOAD" },
+	{ "stk: ADD(stk,stk)", 1, "ADD" },
+	{ "stk: ADD(stk,mem)", 1, "ADDM  [var]" },
+	{ "stk: ADD(stk,imm)", 1, "ADDI  #k" },
+	{ "stk: SUB(stk,stk)", 1, "SUB" },
+	{ "stk: SUB(stk,mem)", 1, "SUBM  [var]" },
+	{ "stk: SUB(stk,imm)", 1, "SUBI  #k" },
+	{ "stk: MUL(stk,stk)", 2, "MUL" },
+	{ "stk: MUL(stk,mem)", 2, "MULM  [var]" },
+	{ "stk: MUL(stk,imm)", 2, "MULI  #k" },
+};
+
+/* Emit code for one selected rule; kids[] holds the children's operands. */
+static Operand reduceB(EmitCtx *ctx, NODEPTR_TYPE p, int rule, const Operand *k)
+{
+	static const char *const mnem[] = {
+		[5] = "LOAD",
+		[6] = "ADD", [7] = "ADDM", [8] = "ADDI",
+		[9] = "SUB", [10] = "SUBM", [11] = "SUBI",
+		[12] = "MUL", [13] = "MULM", [14] = "MULI",
+	};
+
+	switch (rule) {
+	case 3:		/* mem: VAR   -- an operand, no code */
+		return burs_operand("[%s]", p->name);
+	case 4:		/* imm: CONST -- an operand, no code */
+		return burs_operand("#%lld", p->ival);
+	case 1:
+		burs_emit(ctx, "PUSH %s", k[0].s);
+		break;
+	case 2:
+		burs_emit(ctx, "PUSHI %s", k[0].s);
+		break;
+	case 5: case 6: case 9: case 12:	/* operands already on the stack */
+		burs_emit(ctx, "%s", mnem[rule]);
+		break;
+	case 7: case 8: case 10: case 11: case 13: case 14:
+		burs_emit(ctx, "%s %s", mnem[rule], k[1].s);
+		break;
+	default:
+		return burs_operand("?");
+	}
+	return burs_operand("tos");	/* value is now on top of stack */
+}
+
+/* ------------------------------------------------------------------ */
+/* Target B simulator: executes the emitted text as the test oracle.   */
+/* ------------------------------------------------------------------ */
+
+static int simfail(char *err, size_t len, int line, const char *msg, const char *what)
+{
+	snprintf(err, len, "instruction %d: %s '%s'", line, msg, what);
+	return 0;
+}
+
+/* Decode "[x]" or "#k"; returns 0 if the operand has neither form. */
+static int operand_value(const char *s, long long *v)
+{
+	size_t len = strlen(s);
+
+	if (s[0] == '#') {
+		*v = strtoll(s + 1, NULL, 10);
+		return 1;
+	}
+	if (s[0] == '[' && len > 2 && s[len - 1] == ']') {
+		char name[BURS_INSTR_LEN];
+		snprintf(name, sizeof name, "%.*s", (int)(len - 2), s + 1);
+		*v = ir_var_value(name);
+		return 1;
+	}
+	return 0;
+}
+
+static long long arith(char kind, long long a, long long b)
+{
+	return kind == 'A' ? a + b : kind == 'S' ? a - b : a * b;
+}
+
+static int simulateB(const EmitCtx *ctx, const Operand *result, long long *value,
+		     char *err, size_t errlen)
+{
+	static long long S[BURS_MAX_INSTR];
+	char op[16], a[BURS_MAX_ARGS][BURS_INSTR_LEN];
+	int i, n, sp = 0;
+	long long v;
+
+	(void)result;
+	for (i = 0; i < ctx->ncode; i++) {
+		const char *line = ctx->code[i];
+		n = burs_split(line, op, sizeof op, a, BURS_MAX_ARGS);
+		if (n < 0)
+			return simfail(err, errlen, i + 1, "malformed", line);
+
+		if ((strcmp(op, "PUSH") == 0 || strcmp(op, "PUSHI") == 0) && n == 1) {
+			if (!operand_value(a[0], &v))
+				return simfail(err, errlen, i + 1, "bad operand in", line);
+			S[sp++] = v;
+		} else if (strcmp(op, "LOAD") == 0 && n == 0) {
+			if (sp < 1)
+				return simfail(err, errlen, i + 1, "stack underflow at", line);
+			S[sp - 1] = ir_mem_read(S[sp - 1]);
+		} else if ((strcmp(op, "ADD") == 0 || strcmp(op, "SUB") == 0 ||
+			    strcmp(op, "MUL") == 0) && n == 0) {
+			if (sp < 2)
+				return simfail(err, errlen, i + 1, "stack underflow at", line);
+			S[sp - 2] = arith(op[0], S[sp - 2], S[sp - 1]);
+			sp--;
+		} else if (strlen(op) == 4 && strchr("MI", op[3]) &&
+			   (strncmp(op, "ADD", 3) == 0 || strncmp(op, "SUB", 3) == 0 ||
+			    strncmp(op, "MUL", 3) == 0) && n == 1) {
+			if (sp < 1)
+				return simfail(err, errlen, i + 1, "stack underflow at", line);
+			if (!operand_value(a[0], &v) || (op[3] == 'M') != (a[0][0] == '['))
+				return simfail(err, errlen, i + 1, "bad operand in", line);
+			S[sp - 1] = arith(op[0], S[sp - 1], v);
+		} else {
+			return simfail(err, errlen, i + 1, "cannot execute", line);
+		}
+	}
+	if (sp != 1) {
+		char depth[16];
+		snprintf(depth, sizeof depth, "%d", sp);
+		return simfail(err, errlen, ctx->ncode, "final stack depth should be 1, is", depth);
+	}
+	*value = S[0];
+	return 1;
+}
+
+const Target targetB = {
+	"B",
+	"zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)",
+	burmB_stk_NT,
+	burmB_NT, ntB,
+	14, rulesB,
+	burmB_label, burmB_rule, burmB_nts, burmB_kids,
+	reduceB, simulateB,
+};

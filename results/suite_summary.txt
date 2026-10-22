@@ -1,0 +1,16 @@
+Review sample expressions -- cover cost / instruction count per target
+(check = generated code simulated and compared with the IR reference value)
+
+#   expression        A:instr A:cost  B:instr B:cost  check
+1   a + b * c               5      6        4      5  PASS
+2   (a + b) * c             5      6        3      4  PASS
+3   load(a) + 4             3      3        3      3  PASS
+4   a - b + c               5      5        3      3  PASS
+5   a + b + c               5      5        3      3  PASS
+6   a * (b + c)             5      6        4      5  PASS
+7   a                       1      1        1      1  PASS
+8   7                       1      1        1      1  PASS
+9   a * 3 - 1               4      5        3      4  PASS
+10  [a + 8] * [b]           6      7        6      7  PASS
+
+10/10 expressions passed

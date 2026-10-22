@@ -1,0 +1,246 @@
+Expression   : a+b*(c-(d+e*(f-(g+h*(i-(j+k*(l-(m+n*(o-(p+q*(r-(s+t))))))))))))
+IR (prefix)  : ADD(VAR a, MUL(VAR b, SUB(VAR c, ADD(VAR d, MUL(VAR e, SUB(VAR f, ADD(VAR g, MUL(VAR h, SUB(VAR i, ADD(VAR j, MUL(VAR k, SUB(VAR l, ADD(VAR m, MUL(VAR n, SUB(VAR o, ADD(VAR p, MUL(VAR q, SUB(VAR r, ADD(VAR s, VAR t)))))))))))))))))))
+IR tree      :
+    ADD   [n39]
+    |-- VAR a   [n1]
+    `-- MUL   [n38]
+        |-- VAR b   [n2]
+        `-- SUB   [n37]
+            |-- VAR c   [n3]
+            `-- ADD   [n36]
+                |-- VAR d   [n4]
+                `-- MUL   [n35]
+                    |-- VAR e   [n5]
+                    `-- SUB   [n34]
+                        |-- VAR f   [n6]
+                        `-- ADD   [n33]
+                            |-- VAR g   [n7]
+                            `-- MUL   [n32]
+                                |-- VAR h   [n8]
+                                `-- SUB   [n31]
+                                    |-- VAR i   [n9]
+                                    `-- ADD   [n30]
+                                        |-- VAR j   [n10]
+                                        `-- MUL   [n29]
+                                            |-- VAR k   [n11]
+                                            `-- SUB   [n28]
+                                                |-- VAR l   [n12]
+                                                `-- ADD   [n27]
+                                                    |-- VAR m   [n13]
+                                                    `-- MUL   [n26]
+                                                        |-- VAR n   [n14]
+                                                        `-- SUB   [n25]
+                                                            |-- VAR o   [n15]
+                                                            `-- ADD   [n24]
+                                                                |-- VAR p   [n16]
+                                                                `-- MUL   [n23]
+                                                                    |-- VAR q   [n17]
+                                                                    `-- SUB   [n22]
+                                                                        |-- VAR r   [n18]
+                                                                        `-- ADD   [n21]
+                                                                            |-- VAR s   [n19]
+                                                                            `-- VAR t   [n20]
+Test values  : a=2 b=3 c=4 d=5 e=6 f=7 g=8 h=9 i=10 j=11 k=12 l=13 m=14 n=15 o=16 p=17 q=18 r=19 s=20 t=21, mem[x]=1000+x
+Reference    : 11519999
+
+========================================================================
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+========================================================================
+Selected cover (backtracked from root, goal 'reg'):
+    reg: ADD(reg,reg)                       n39   cost 1   ADD   rd, ra, rb
+    . reg: VAR                              n1    cost 1   LOAD  rd, [var]
+    . reg: MUL(reg,reg)                     n38   cost 2   MUL   rd, ra, rb
+    . . reg: VAR                            n2    cost 1   LOAD  rd, [var]
+    . . reg: SUB(reg,reg)                   n37   cost 1   SUB   rd, ra, rb
+    . . . reg: VAR                          n3    cost 1   LOAD  rd, [var]
+    . . . reg: ADD(reg,reg)                 n36   cost 1   ADD   rd, ra, rb
+    . . . . reg: VAR                        n4    cost 1   LOAD  rd, [var]
+    . . . . reg: MUL(reg,reg)               n35   cost 2   MUL   rd, ra, rb
+    . . . . . reg: VAR                      n5    cost 1   LOAD  rd, [var]
+    . . . . . reg: SUB(reg,reg)             n34   cost 1   SUB   rd, ra, rb
+    . . . . . . reg: VAR                    n6    cost 1   LOAD  rd, [var]
+    . . . . . . reg: ADD(reg,reg)           n33   cost 1   ADD   rd, ra, rb
+    . . . . . . . reg: VAR                  n7    cost 1   LOAD  rd, [var]
+    . . . . . . . reg: MUL(reg,reg)         n32   cost 2   MUL   rd, ra, rb
+    . . . . . . . . reg: VAR                n8    cost 1   LOAD  rd, [var]
+    . . . . . . . . reg: SUB(reg,reg)       n31   cost 1   SUB   rd, ra, rb
+    . . . . . . . . . reg: VAR              n9    cost 1   LOAD  rd, [var]
+    . . . . . . . . . reg: ADD(reg,reg)     n30   cost 1   ADD   rd, ra, rb
+    . . . . . . . . . . reg: VAR            n10   cost 1   LOAD  rd, [var]
+    . . . . . . . . . . reg: MUL(reg,reg)   n29   cost 2   MUL   rd, ra, rb
+    . . . . . . . . . . . reg: VAR          n11   cost 1   LOAD  rd, [var]
+    . . . . . . . . . . . reg: SUB(reg,reg) n28   cost 1   SUB   rd, ra, rb
+    . . . . . . . . . . . . reg: VAR        n12   cost 1   LOAD  rd, [var]
+    . . . . . . . . . . . . reg: ADD(reg,reg) n27   cost 1   ADD   rd, ra, rb
+    . . . . . . . . . . . . . reg: VAR      n13   cost 1   LOAD  rd, [var]
+    . . . . . . . . . . . . . reg: MUL(reg,reg) n26   cost 2   MUL   rd, ra, rb
+    . . . . . . . . . . . . . . reg: VAR    n14   cost 1   LOAD  rd, [var]
+    . . . . . . . . . . . . . . reg: SUB(reg,reg) n25   cost 1   SUB   rd, ra, rb
+    . . . . . . . . . . . . . . . reg: VAR  n15   cost 1   LOAD  rd, [var]
+    . . . . . . . . . . . . . . . reg: ADD(reg,reg) n24   cost 1   ADD   rd, ra, rb
+    . . . . . . . . . . . . . . . . reg: VAR n16   cost 1   LOAD  rd, [var]
+    . . . . . . . . . . . . . . . . reg: MUL(reg,reg) n23   cost 2   MUL   rd, ra, rb
+    . . . . . . . . . . . . . . . . . reg: VAR n17   cost 1   LOAD  rd, [var]
+    . . . . . . . . . . . . . . . . . reg: SUB(reg,reg) n22   cost 1   SUB   rd, ra, rb
+    . . . . . . . . . . . . . . . . . . reg: VAR n18   cost 1   LOAD  rd, [var]
+    . . . . . . . . . . . . . . . . . . reg: ADD(reg,reg) n21   cost 1   ADD   rd, ra, rb
+    . . . . . . . . . . . . . . . . . . . reg: VAR n19   cost 1   LOAD  rd, [var]
+    . . . . . . . . . . . . . . . . . . . reg: VAR n20   cost 1   LOAD  rd, [var]
+
+Generated code:
+      1  LOAD r0,[a]
+      2  LOAD r1,[b]
+      3  LOAD r2,[c]
+      4  LOAD r3,[d]
+      5  LOAD r4,[e]
+      6  LOAD r5,[f]
+      7  LOAD r6,[g]
+      8  LOAD r7,[h]
+      9  LOAD r8,[i]
+     10  LOAD r9,[j]
+     11  LOAD r10,[k]
+     12  LOAD r11,[l]
+     13  LOAD r12,[m]
+     14  LOAD r13,[n]
+     15  LOAD r14,[o]
+     16  LOAD r15,[p]
+     17  LOAD r16,[q]
+     18  LOAD r17,[r]
+     19  LOAD r18,[s]
+     20  LOAD r19,[t]
+     21  ADD r20,r18,r19
+     22  SUB r21,r17,r20
+     23  MUL r22,r16,r21
+     24  ADD r23,r15,r22
+     25  SUB r24,r14,r23
+     26  MUL r25,r13,r24
+     27  ADD r26,r12,r25
+     28  SUB r27,r11,r26
+     29  MUL r28,r10,r27
+     30  ADD r29,r9,r28
+     31  SUB r30,r8,r29
+     32  MUL r31,r7,r30
+     33  ADD r32,r6,r31
+     34  SUB r33,r5,r32
+     35  MUL r34,r4,r33
+     36  ADD r35,r3,r34
+     37  SUB r36,r2,r35
+     38  MUL r37,r1,r36
+     39  ADD r38,r0,r37
+
+Total cover cost : 45   (39 instructions)
+Simulation       : result 11519999, reference 11519999   OK
+
+========================================================================
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+========================================================================
+Selected cover (backtracked from root, goal 'stk'):
+    stk: ADD(stk,stk)                       n39   cost 1   ADD
+    . stk: mem                              n1    cost 1   PUSH  [var]
+    . . mem: VAR                            n1    cost 0   (operand [var], no code)
+    . stk: MUL(stk,stk)                     n38   cost 2   MUL
+    . . stk: mem                            n2    cost 1   PUSH  [var]
+    . . . mem: VAR                          n2    cost 0   (operand [var], no code)
+    . . stk: SUB(stk,stk)                   n37   cost 1   SUB
+    . . . stk: mem                          n3    cost 1   PUSH  [var]
+    . . . . mem: VAR                        n3    cost 0   (operand [var], no code)
+    . . . stk: ADD(stk,stk)                 n36   cost 1   ADD
+    . . . . stk: mem                        n4    cost 1   PUSH  [var]
+    . . . . . mem: VAR                      n4    cost 0   (operand [var], no code)
+    . . . . stk: MUL(stk,stk)               n35   cost 2   MUL
+    . . . . . stk: mem                      n5    cost 1   PUSH  [var]
+    . . . . . . mem: VAR                    n5    cost 0   (operand [var], no code)
+    . . . . . stk: SUB(stk,stk)             n34   cost 1   SUB
+    . . . . . . stk: mem                    n6    cost 1   PUSH  [var]
+    . . . . . . . mem: VAR                  n6    cost 0   (operand [var], no code)
+    . . . . . . stk: ADD(stk,stk)           n33   cost 1   ADD
+    . . . . . . . stk: mem                  n7    cost 1   PUSH  [var]
+    . . . . . . . . mem: VAR                n7    cost 0   (operand [var], no code)
+    . . . . . . . stk: MUL(stk,stk)         n32   cost 2   MUL
+    . . . . . . . . stk: mem                n8    cost 1   PUSH  [var]
+    . . . . . . . . . mem: VAR              n8    cost 0   (operand [var], no code)
+    . . . . . . . . stk: SUB(stk,stk)       n31   cost 1   SUB
+    . . . . . . . . . stk: mem              n9    cost 1   PUSH  [var]
+    . . . . . . . . . . mem: VAR            n9    cost 0   (operand [var], no code)
+    . . . . . . . . . stk: ADD(stk,stk)     n30   cost 1   ADD
+    . . . . . . . . . . stk: mem            n10   cost 1   PUSH  [var]
+    . . . . . . . . . . . mem: VAR          n10   cost 0   (operand [var], no code)
+    . . . . . . . . . . stk: MUL(stk,stk)   n29   cost 2   MUL
+    . . . . . . . . . . . stk: mem          n11   cost 1   PUSH  [var]
+    . . . . . . . . . . . . mem: VAR        n11   cost 0   (operand [var], no code)
+    . . . . . . . . . . . stk: SUB(stk,stk) n28   cost 1   SUB
+    . . . . . . . . . . . . stk: mem        n12   cost 1   PUSH  [var]
+    . . . . . . . . . . . . . mem: VAR      n12   cost 0   (operand [var], no code)
+    . . . . . . . . . . . . stk: ADD(stk,stk) n27   cost 1   ADD
+    . . . . . . . . . . . . . stk: mem      n13   cost 1   PUSH  [var]
+    . . . . . . . . . . . . . . mem: VAR    n13   cost 0   (operand [var], no code)
+    . . . . . . . . . . . . . stk: MUL(stk,stk) n26   cost 2   MUL
+    . . . . . . . . . . . . . . stk: mem    n14   cost 1   PUSH  [var]
+    . . . . . . . . . . . . . . . mem: VAR  n14   cost 0   (operand [var], no code)
+    . . . . . . . . . . . . . . stk: SUB(stk,stk) n25   cost 1   SUB
+    . . . . . . . . . . . . . . . stk: mem  n15   cost 1   PUSH  [var]
+    . . . . . . . . . . . . . . . . mem: VAR n15   cost 0   (operand [var], no code)
+    . . . . . . . . . . . . . . . stk: ADD(stk,stk) n24   cost 1   ADD
+    . . . . . . . . . . . . . . . . stk: mem n16   cost 1   PUSH  [var]
+    . . . . . . . . . . . . . . . . . mem: VAR n16   cost 0   (operand [var], no code)
+    . . . . . . . . . . . . . . . . stk: MUL(stk,stk) n23   cost 2   MUL
+    . . . . . . . . . . . . . . . . . stk: mem n17   cost 1   PUSH  [var]
+    . . . . . . . . . . . . . . . . . . mem: VAR n17   cost 0   (operand [var], no code)
+    . . . . . . . . . . . . . . . . . stk: SUB(stk,stk) n22   cost 1   SUB
+    . . . . . . . . . . . . . . . . . . stk: mem n18   cost 1   PUSH  [var]
+    . . . . . . . . . . . . . . . . . . . mem: VAR n18   cost 0   (operand [var], no code)
+    . . . . . . . . . . . . . . . . . . stk: ADD(stk,mem) n21   cost 1   ADDM  [var]
+    . . . . . . . . . . . . . . . . . . . stk: mem n19   cost 1   PUSH  [var]
+    . . . . . . . . . . . . . . . . . . . . mem: VAR n19   cost 0   (operand [var], no code)
+    . . . . . . . . . . . . . . . . . . . mem: VAR n20   cost 0   (operand [var], no code)
+
+Generated code:
+      1  PUSH [a]
+      2  PUSH [b]
+      3  PUSH [c]
+      4  PUSH [d]
+      5  PUSH [e]
+      6  PUSH [f]
+      7  PUSH [g]
+      8  PUSH [h]
+      9  PUSH [i]
+     10  PUSH [j]
+     11  PUSH [k]
+     12  PUSH [l]
+     13  PUSH [m]
+     14  PUSH [n]
+     15  PUSH [o]
+     16  PUSH [p]
+     17  PUSH [q]
+     18  PUSH [r]
+     19  PUSH [s]
+     20  ADDM [t]
+     21  SUB
+     22  MUL
+     23  ADD
+     24  SUB
+     25  MUL
+     26  ADD
+     27  SUB
+     28  MUL
+     29  ADD
+     30  SUB
+     31  MUL
+     32  ADD
+     33  SUB
+     34  MUL
+     35  ADD
+     36  SUB
+     37  MUL
+     38  ADD
+
+Total cover cost : 44   (38 instructions)
+Simulation       : result 11519999, reference 11519999   OK
+
+------------------------------------------------------------------------
+Retargeting summary (same IR tree, same BURS engine):
+    target   instrs   cost   check
+    A        39       45     OK
+    B        38       44     OK
+------------------------------------------------------------------------
+exit=0

@@ -1,0 +1,184 @@
+%{
+/*
+ * targetA.gr - Target A: three-address load/store register machine.
+ *
+ *   LOAD  rd, [var]      rd <- value of variable
+ *   LOAD  rd, [rs]       rd <- memory[rs]
+ *   LOADI rd, #k         rd <- k
+ *   ADD   rd, ra, rb     rd <- ra + rb          (also SUB, MUL)
+ *   ADDI  rd, ra, #k     rd <- ra + k           (also SUBI)
+ *
+ * Unlimited virtual registers r0, r1, ... (no register allocation).
+ * Costs: every instruction 1 except MUL, which is 2.
+ *
+ * burg reads the declarations and rules below and generates the matcher;
+ * everything after the second %% is copied into the output unchanged.
+ */
+#include <stdlib.h>
+#include <string.h>
+
+#include "target.h"
+%}
+
+%start reg
+%term CONST=1 VAR=2 ADD=3 SUB=4 MUL=5 LOAD=6
+
+%%
+reg:	VAR		= 1 (1);
+reg:	CONST		= 2 (1);
+imm:	CONST		= 3 (0);
+reg:	LOAD(reg)	= 4 (1);
+reg:	ADD(reg,reg)	= 5 (1);
+reg:	ADD(reg,imm)	= 6 (1);
+reg:	SUB(reg,reg)	= 7 (1);
+reg:	SUB(reg,imm)	= 8 (1);
+reg:	MUL(reg,reg)	= 9 (2);
+%%
+
+static const char *const ntA[] = {
+	[burmA_reg_NT] = "reg",
+	[burmA_imm_NT] = "imm",
+};
+
+/* Indexed by external rule number; costs mirror the grammar above. */
+static const RuleInfo rulesA[] = {
+	{ NULL, 0, NULL },
+	{ "reg: VAR",          1, "LOAD  rd, [var]" },
+	{ "reg: CONST",        1, "LOADI rd, #k" },
+	{ "imm: CONST",        0, "(operand #k, no code)" },
+	{ "reg: LOAD(reg)",    1, "LOAD  rd, [rs]" },
+	{ "reg: ADD(reg,reg)", 1, "ADD   rd, ra, rb" },
+	{ "reg: ADD(reg,imm)", 1, "ADDI  rd, ra, #k" },
+	{ "reg: SUB(reg,reg)", 1, "SUB   rd, ra, rb" },
+	{ "reg: SUB(reg,imm)", 1, "SUBI  rd, ra, #k" },
+	{ "reg: MUL(reg,reg)", 2, "MUL   rd, ra, rb" },
+};
+
+/* Emit code for one selected rule; kids[] holds the children's operands. */
+static Operand reduceA(EmitCtx *ctx, NODEPTR_TYPE p, int rule, const Operand *k)
+{
+	Operand d;
+
+	switch (rule) {
+	case 3:		/* imm: CONST -- folded into the parent instruction */
+		return burs_operand("#%lld", p->ival);
+	case 1:
+		d = burs_new_reg(ctx);
+		burs_emit(ctx, "LOAD %s,[%s]", d.s, p->name);
+		return d;
+	case 2:
+		d = burs_new_reg(ctx);
+		burs_emit(ctx, "LOADI %s,#%lld", d.s, p->ival);
+		return d;
+	case 4:
+		d = burs_new_reg(ctx);
+		burs_emit(ctx, "LOAD %s,[%s]", d.s, k[0].s);
+		return d;
+	case 5: case 6: case 7: case 8: case 9: {
+		static const char *const mnem[] = {
+			[5] = "ADD", [6] = "ADDI", [7] = "SUB", [8] = "SUBI", [9] = "MUL"
+		};
+		d = burs_new_reg(ctx);
+		burs_emit(ctx, "%s %s,%s,%s", mnem[rule], d.s, k[0].s, k[1].s);
+		return d;
+	}
+	}
+	return burs_operand("?");
+}
+
+/* ------------------------------------------------------------------ */
+/* Target A simulator: executes the emitted text as the test oracle.   */
+/* ------------------------------------------------------------------ */
+
+#define NREGS BURS_MAX_INSTR
+
+static int simfail(char *err, size_t len, int line, const char *msg, const char *what)
+{
+	snprintf(err, len, "instruction %d: %s '%s'", line, msg, what);
+	return 0;
+}
+
+static int regnum(const char *s)
+{
+	char *end;
+	long n;
+
+	if (s[0] != 'r')
+		return -1;
+	n = strtol(s + 1, &end, 10);
+	if (end == s + 1 || *end != '\0' || n < 0 || n >= NREGS)
+		return -1;
+	return (int)n;
+}
+
+static int simulateA(const EmitCtx *ctx, const Operand *result, long long *value,
+		     char *err, size_t errlen)
+{
+	static long long R[NREGS];
+	static char defined[NREGS];
+	char op[16], a[BURS_MAX_ARGS][BURS_INSTR_LEN];
+	int i, n, d, s1, s2;
+
+	memset(defined, 0, sizeof defined);
+	for (i = 0; i < ctx->ncode; i++) {
+		const char *line = ctx->code[i];
+		n = burs_split(line, op, sizeof op, a, BURS_MAX_ARGS);
+		if (n < 2 || (d = regnum(a[0])) < 0)
+			return simfail(err, errlen, i + 1, "malformed", line);
+
+		if (strcmp(op, "LOAD") == 0 && n == 2 && a[1][0] == '[') {
+			char inner[BURS_INSTR_LEN];
+			size_t len = strlen(a[1]);
+			if (a[1][len - 1] != ']')
+				return simfail(err, errlen, i + 1, "malformed", line);
+			snprintf(inner, sizeof inner, "%.*s", (int)(len - 2), a[1] + 1);
+			if ((s1 = regnum(inner)) >= 0) {
+				if (!defined[s1])
+					return simfail(err, errlen, i + 1, "reads undefined", inner);
+				R[d] = ir_mem_read(R[s1]);
+			} else {
+				R[d] = ir_var_value(inner);
+			}
+		} else if (strcmp(op, "LOADI") == 0 && n == 2 && a[1][0] == '#') {
+			R[d] = strtoll(a[1] + 1, NULL, 10);
+		} else if (n == 3 && (s1 = regnum(a[1])) >= 0) {
+			long long rhs;
+			if (!defined[s1])
+				return simfail(err, errlen, i + 1, "reads undefined", a[1]);
+			if (a[2][0] == '#' && (strcmp(op, "ADDI") == 0 || strcmp(op, "SUBI") == 0)) {
+				rhs = strtoll(a[2] + 1, NULL, 10);
+			} else if ((s2 = regnum(a[2])) >= 0) {
+				if (!defined[s2])
+					return simfail(err, errlen, i + 1, "reads undefined", a[2]);
+				rhs = R[s2];
+			} else {
+				return simfail(err, errlen, i + 1, "bad operand in", line);
+			}
+			if (strncmp(op, "ADD", 3) == 0)
+				R[d] = R[s1] + rhs;
+			else if (strncmp(op, "SUB", 3) == 0)
+				R[d] = R[s1] - rhs;
+			else if (strcmp(op, "MUL") == 0)
+				R[d] = R[s1] * rhs;
+			else
+				return simfail(err, errlen, i + 1, "unknown opcode in", line);
+		} else {
+			return simfail(err, errlen, i + 1, "cannot execute", line);
+		}
+		defined[d] = 1;
+	}
+	if ((d = regnum(result->s)) < 0 || !defined[d])
+		return simfail(err, errlen, ctx->ncode, "result not in a register:", result->s);
+	*value = R[d];
+	return 1;
+}
+
+const Target targetA = {
+	"A",
+	"3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)",
+	burmA_reg_NT,
+	burmA_NT, ntA,
+	9, rulesA,
+	burmA_label, burmA_rule, burmA_nts, burmA_kids,
+	reduceA, simulateA,
+};

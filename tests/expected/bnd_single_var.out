@@ -1,0 +1,39 @@
+Expression   : a
+IR (prefix)  : VAR a
+IR tree      :
+    VAR a   [n1]
+Test values  : a=2, mem[x]=1000+x
+Reference    : 2
+
+========================================================================
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+========================================================================
+Selected cover (backtracked from root, goal 'reg'):
+    reg: VAR                                n1    cost 1   LOAD  rd, [var]
+
+Generated code:
+      1  LOAD r0,[a]
+
+Total cover cost : 1   (1 instruction)
+Simulation       : result 2, reference 2   OK
+
+========================================================================
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+========================================================================
+Selected cover (backtracked from root, goal 'stk'):
+    stk: mem                                n1    cost 1   PUSH  [var]
+    . mem: VAR                              n1    cost 0   (operand [var], no code)
+
+Generated code:
+      1  PUSH [a]
+
+Total cover cost : 1   (1 instruction)
+Simulation       : result 2, reference 2   OK
+
+------------------------------------------------------------------------
+Retargeting summary (same IR tree, same BURS engine):
+    target   instrs   cost   check
+    A        1        1      OK
+    B        1        1      OK
+------------------------------------------------------------------------
+exit=0

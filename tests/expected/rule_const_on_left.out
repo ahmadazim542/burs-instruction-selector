@@ -8,7 +8,7 @@ Test values  : a=2, mem[x]=1000+x
 Reference    : 9
 
 ========================================================================
-Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
 ========================================================================
 Selected cover (backtracked from root, goal 'reg'):
     reg: ADD(reg,reg)                       n3    cost 1   ADD   rd, ra, rb

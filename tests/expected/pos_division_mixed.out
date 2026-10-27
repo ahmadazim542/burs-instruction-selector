@@ -1,0 +1,106 @@
+Expression   : ((a*b)+((a-c)*d/b)+a*2)
+IR (prefix)  : ADD(ADD(MUL(VAR a, VAR b), DIV(MUL(SUB(VAR a, VAR c), VAR d), VAR b)), MUL(VAR a, CONST 2))
+IR tree      :
+    ADD   [n15]
+    |-- ADD   [n11]
+    |   |-- MUL   [n3]
+    |   |   |-- VAR a   [n1]
+    |   |   `-- VAR b   [n2]
+    |   `-- DIV   [n10]
+    |       |-- MUL   [n8]
+    |       |   |-- SUB   [n6]
+    |       |   |   |-- VAR a   [n4]
+    |       |   |   `-- VAR c   [n5]
+    |       |   `-- VAR d   [n7]
+    |       `-- VAR b   [n9]
+    `-- MUL   [n14]
+        |-- VAR a   [n12]
+        `-- CONST 2   [n13]
+Test values  : a=2 b=3 c=4 d=5, mem[x]=1000+x
+Reference    : 7
+
+========================================================================
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
+========================================================================
+Selected cover (backtracked from root, goal 'reg'):
+    reg: ADD(reg,reg)                       n15   cost 1   ADD   rd, ra, rb
+    . reg: ADD(reg,reg)                     n11   cost 1   ADD   rd, ra, rb
+    . . reg: MUL(reg,reg)                   n3    cost 2   MUL   rd, ra, rb
+    . . . reg: VAR                          n1    cost 1   LOAD  rd, [var]
+    . . . reg: VAR                          n2    cost 1   LOAD  rd, [var]
+    . . reg: DIV(reg,reg)                   n10   cost 3   DIV   rd, ra, rb
+    . . . reg: MUL(reg,reg)                 n8    cost 2   MUL   rd, ra, rb
+    . . . . reg: SUB(reg,reg)               n6    cost 1   SUB   rd, ra, rb
+    . . . . . reg: VAR                      n4    cost 1   LOAD  rd, [var]
+    . . . . . reg: VAR                      n5    cost 1   LOAD  rd, [var]
+    . . . . reg: VAR                        n7    cost 1   LOAD  rd, [var]
+    . . . reg: VAR                          n9    cost 1   LOAD  rd, [var]
+    . reg: MUL(reg,reg)                     n14   cost 2   MUL   rd, ra, rb
+    . . reg: VAR                            n12   cost 1   LOAD  rd, [var]
+    . . reg: CONST                          n13   cost 1   LOADI rd, #k
+
+Generated code:
+      1  LOAD r0,[a]
+      2  LOAD r1,[b]
+      3  MUL r2,r0,r1
+      4  LOAD r3,[a]
+      5  LOAD r4,[c]
+      6  SUB r5,r3,r4
+      7  LOAD r6,[d]
+      8  MUL r7,r5,r6
+      9  LOAD r8,[b]
+     10  DIV r9,r7,r8
+     11  ADD r10,r2,r9
+     12  LOAD r11,[a]
+     13  LOADI r12,#2
+     14  MUL r13,r11,r12
+     15  ADD r14,r10,r13
+
+Total cover cost : 20   (15 instructions)
+Simulation       : result 7, reference 7   OK
+
+========================================================================
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL.../DIV...)
+========================================================================
+Selected cover (backtracked from root, goal 'stk'):
+    stk: ADD(stk,stk)                       n15   cost 1   ADD
+    . stk: ADD(stk,stk)                     n11   cost 1   ADD
+    . . stk: MUL(stk,mem)                   n3    cost 2   MULM  [var]
+    . . . stk: mem                          n1    cost 1   PUSH  [var]
+    . . . . mem: VAR                        n1    cost 0   (operand [var], no code)
+    . . . mem: VAR                          n2    cost 0   (operand [var], no code)
+    . . stk: DIV(stk,mem)                   n10   cost 3   DIVM  [var]
+    . . . stk: MUL(stk,mem)                 n8    cost 2   MULM  [var]
+    . . . . stk: SUB(stk,mem)               n6    cost 1   SUBM  [var]
+    . . . . . stk: mem                      n4    cost 1   PUSH  [var]
+    . . . . . . mem: VAR                    n4    cost 0   (operand [var], no code)
+    . . . . . mem: VAR                      n5    cost 0   (operand [var], no code)
+    . . . . mem: VAR                        n7    cost 0   (operand [var], no code)
+    . . . mem: VAR                          n9    cost 0   (operand [var], no code)
+    . stk: MUL(stk,imm)                     n14   cost 2   MULI  #k
+    . . stk: mem                            n12   cost 1   PUSH  [var]
+    . . . mem: VAR                          n12   cost 0   (operand [var], no code)
+    . . imm: CONST                          n13   cost 0   (operand #k, no code)
+
+Generated code:
+      1  PUSH [a]
+      2  MULM [b]
+      3  PUSH [a]
+      4  SUBM [c]
+      5  MULM [d]
+      6  DIVM [b]
+      7  ADD
+      8  PUSH [a]
+      9  MULI #2
+     10  ADD
+
+Total cover cost : 15   (10 instructions)
+Simulation       : result 7, reference 7   OK
+
+------------------------------------------------------------------------
+Retargeting summary (same IR tree, same BURS engine):
+    target   instrs   cost   check
+    A        15       20     OK
+    B        10       15     OK
+------------------------------------------------------------------------
+exit=0

@@ -1,0 +1,59 @@
+Expression   : a / (b - b)
+IR (prefix)  : DIV(VAR a, SUB(VAR b, VAR b))
+IR tree      :
+    DIV   [n5]
+    |-- VAR a   [n1]
+    `-- SUB   [n4]
+        |-- VAR b   [n2]
+        `-- VAR b   [n3]
+Test values  : a=2 b=3, mem[x]=1000+x
+Reference    : undefined -- division by zero with these test values (change them with -D name=value)
+
+========================================================================
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
+========================================================================
+Selected cover (backtracked from root, goal 'reg'):
+    reg: DIV(reg,reg)                       n5    cost 3   DIV   rd, ra, rb
+    . reg: VAR                              n1    cost 1   LOAD  rd, [var]
+    . reg: SUB(reg,reg)                     n4    cost 1   SUB   rd, ra, rb
+    . . reg: VAR                            n2    cost 1   LOAD  rd, [var]
+    . . reg: VAR                            n3    cost 1   LOAD  rd, [var]
+
+Generated code:
+      1  LOAD r0,[a]
+      2  LOAD r1,[b]
+      3  LOAD r2,[b]
+      4  SUB r3,r1,r2
+      5  DIV r4,r0,r3
+
+Total cover cost : 7   (5 instructions)
+Simulation       : not run -- reference value undefined (division by zero)
+
+========================================================================
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL.../DIV...)
+========================================================================
+Selected cover (backtracked from root, goal 'stk'):
+    stk: DIV(stk,stk)                       n5    cost 3   DIV
+    . stk: mem                              n1    cost 1   PUSH  [var]
+    . . mem: VAR                            n1    cost 0   (operand [var], no code)
+    . stk: SUB(stk,mem)                     n4    cost 1   SUBM  [var]
+    . . stk: mem                            n2    cost 1   PUSH  [var]
+    . . . mem: VAR                          n2    cost 0   (operand [var], no code)
+    . . mem: VAR                            n3    cost 0   (operand [var], no code)
+
+Generated code:
+      1  PUSH [a]
+      2  PUSH [b]
+      3  SUBM [b]
+      4  DIV
+
+Total cover cost : 6   (4 instructions)
+Simulation       : not run -- reference value undefined (division by zero)
+
+------------------------------------------------------------------------
+Retargeting summary (same IR tree, same BURS engine):
+    target   instrs   cost   check
+    A        5        7      not run
+    B        4        6      not run
+------------------------------------------------------------------------
+exit=3

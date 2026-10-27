@@ -8,7 +8,7 @@ Test values  : a=2, mem[x]=1000+x
 Reference    : 10
 
 ========================================================================
-Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL.../DIV...)
 ========================================================================
 Selected cover (backtracked from root, goal 'stk'):
     stk: MUL(stk,imm)                       n3    cost 2   MULI  #k

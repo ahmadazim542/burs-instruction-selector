@@ -9,7 +9,7 @@ Test values  : a=2, mem[x]=1000+x
 Reference    : 1006
 
 ========================================================================
-Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
 ========================================================================
 BURS cost table (bottom-up labeling, best rule per nonterminal):
     node               NT    best rule              cost
@@ -35,7 +35,7 @@ Total cover cost : 3   (3 instructions)
 Simulation       : result 1006, reference 1006   OK
 
 ========================================================================
-Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL.../DIV...)
 ========================================================================
 BURS cost table (bottom-up labeling, best rule per nonterminal):
     node               NT    best rule              cost

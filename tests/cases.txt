@@ -9,6 +9,8 @@ pos_a_plus_b_plus_c     |      | a + b + c
 pos_a_mul_paren         |      | a * (b + c)
 pos_a_minus_b_plus_c    |      | a - b + c
 pos_load_plus_const     | -v   | load(a) + 4
+pos_division            |      | (a + b) / c
+pos_division_mixed      |      | ((a*b)+((a-c)*d/b)+a*2)
 #
 # Boundary -- leaves, deep nesting, multi-letter names, big constants
 bnd_single_var          |      | a
@@ -17,6 +19,7 @@ bnd_deep_nesting        |      | a+b*(c-(d+e*(f-(g+h*(i-(j+k*(l-(m+n*(o-(p+q*(r-
 bnd_named_vars          | -D count=10 -D base=100 | base + count * 8
 bnd_nested_loads        |      | [[a] + 1]
 bnd_large_const         |      | a * 1000000 - 999999
+bnd_div_truncates       |      | (0 - 7) / 2
 #
 # Rule choice -- several rules match; the cheapest cover must win
 rule_addi_vs_loadi      | -t A | a + 7
@@ -24,9 +27,11 @@ rule_const_on_left      | -t A | 7 + a
 rule_subi               | -t A | a - 1
 rule_mem_operand        | -t B | a * b
 rule_muli               | -t B | a * 5
+rule_divi               | -t A | a / 2
+rule_divm               | -t B | a / b
 #
 # Negative -- malformed or unsupported input is rejected with exit status 2
-neg_division            |      | a / b
+neg_modulo              |      | a % b
 neg_missing_operand     |      | a + * b
 neg_unbalanced_paren    |      | (a + b
 neg_unbalanced_bracket  |      | [a + b
@@ -34,3 +39,6 @@ neg_trailing_token      |      | a b
 neg_unary_minus         |      | a * -b
 neg_empty               |      |
 neg_bad_char            |      | a + $
+#
+# Failure -- valid input whose value is undefined: code is generated, check not run, exit 3
+fail_div_by_zero        |      | a / (b - b)

@@ -1,4 +1,4 @@
-Target A: 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+Target A: 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
     #   rule (pattern)           cost instruction template
     --  --------------           ---- --------------------
     1   reg: VAR                    1 LOAD  rd, [var]
@@ -10,8 +10,10 @@ Target A: 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MU
     7   reg: SUB(reg,reg)           1 SUB   rd, ra, rb
     8   reg: SUB(reg,imm)           1 SUBI  rd, ra, #k
     9   reg: MUL(reg,reg)           2 MUL   rd, ra, rb
+    10  reg: DIV(reg,reg)           3 DIV   rd, ra, rb
+    11  reg: DIV(reg,imm)           3 DIVI  rd, ra, #k
 
-Target B: zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+Target B: zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL.../DIV...)
     #   rule (pattern)           cost instruction template
     --  --------------           ---- --------------------
     1   stk: mem                    1 PUSH  [var]
@@ -28,4 +30,7 @@ Target B: zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL..
     12  stk: MUL(stk,stk)           2 MUL
     13  stk: MUL(stk,mem)           2 MULM  [var]
     14  stk: MUL(stk,imm)           2 MULI  #k
+    15  stk: DIV(stk,stk)           3 DIV
+    16  stk: DIV(stk,mem)           3 DIVM  [var]
+    17  stk: DIV(stk,imm)           3 DIVI  #k
 

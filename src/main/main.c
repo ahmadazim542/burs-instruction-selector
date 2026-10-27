@@ -65,7 +65,7 @@ static void usage(FILE *out)
 		"  -D name=value   set a variable's value for the simulation check\n"
 		"  -h              this help\n"
 		"\n"
-		"expressions: + - *, integer constants, variables, ( ), and memory\n"
+		"expressions: + - * /, integer constants, variables, ( ), and memory\n"
 		"loads written [e] or load(e).   example: burs \"a + b * c\"\n");
 }
 
@@ -106,8 +106,12 @@ static void rule_line(char c)
 	putchar('\n');
 }
 
-/* Label, select, emit and simulate one target.  quiet: no printing. */
-static void run_target(const Target *t, NODEPTR_TYPE tree, long long expect,
+/*
+ * Label, select, emit and simulate one target.  quiet: no printing.
+ * expect is the IR reference value, or NULL when the expression has none
+ * (it divides by zero with the current test values).
+ */
+static void run_target(const Target *t, NODEPTR_TYPE tree, const long long *expect,
 		       int verbose, int quiet, struct run *out, EmitCtx *ctx)
 {
 	Operand res;
@@ -162,18 +166,24 @@ static void run_target(const Target *t, NODEPTR_TYPE tree, long long expect,
 		       ctx->ncode, ctx->ncode == 1 ? "" : "s");
 	}
 
+	if (expect == NULL) {
+		snprintf(out->err, sizeof out->err, "reference value undefined (division by zero)");
+		if (!quiet)
+			printf("Simulation       : not run -- %s\n", out->err);
+		return;
+	}
 	if (!t->simulate(ctx, &res, &out->value, out->err, sizeof out->err)) {
 		if (!quiet)
 			printf("Simulation       : FAILED -- %s\n", out->err);
 		return;
 	}
-	out->sim_ok = out->value == expect;
+	out->sim_ok = out->value == *expect;
 	if (!out->sim_ok)
 		snprintf(out->err, sizeof out->err, "simulated %lld, expected %lld",
-			 out->value, expect);
+			 out->value, *expect);
 	if (!quiet)
 		printf("Simulation       : result %lld, reference %lld   %s\n",
-		       out->value, expect, out->sim_ok ? "OK" : "MISMATCH");
+		       out->value, *expect, out->sim_ok ? "OK" : "MISMATCH");
 }
 
 /* Full report for one expression.  Returns an exit status. */
@@ -184,7 +194,7 @@ static int process(const char *src, const struct options *opt)
 	struct run runs[NTARGETS];
 	static EmitCtx ctx;
 	long long expect;
-	int i, nused = 0, status = 0;
+	int i, nused = 0, status = 0, defined = 1;
 
 	printf("Expression   : %s\n", src);
 	if (tree == NULL) {
@@ -196,14 +206,19 @@ static int process(const char *src, const struct options *opt)
 	printf("\nIR tree      :\n");
 	ir_draw(tree, stdout);
 	print_vars(tree);
-	expect = ir_eval(tree);
-	printf("Reference    : %lld\n", expect);
+	expect = ir_eval(tree, &defined);
+	if (defined)
+		printf("Reference    : %lld\n", expect);
+	else
+		printf("Reference    : undefined -- division by zero with these test values"
+		       " (change them with -D name=value)\n");
 
 	for (i = 0; i < NTARGETS; i++) {
 		if (!opt->use[i])
 			continue;
 		nused++;
-		run_target(all_targets[i], tree, expect, opt->verbose, 0, &runs[i], &ctx);
+		run_target(all_targets[i], tree, defined ? &expect : NULL, opt->verbose, 0,
+			   &runs[i], &ctx);
 		if (!runs[i].covered || !runs[i].sim_ok)
 			status = EXIT_CHECK;
 	}
@@ -217,7 +232,7 @@ static int process(const char *src, const struct options *opt)
 			if (opt->use[i])
 				printf("    %-8s %-8d %-6d %s\n", all_targets[i]->id,
 				       runs[i].ninstr, runs[i].cost,
-				       runs[i].sim_ok ? "OK" : "FAIL");
+				       !defined ? "not run" : runs[i].sim_ok ? "OK" : "FAIL");
 		rule_line('-');
 	}
 	freetree(tree);
@@ -241,7 +256,7 @@ static int run_suite(const struct options *opt)
 		char err[160];
 		NODEPTR_TYPE tree = ir_parse(suite[s], err, sizeof err);
 		long long expect;
-		int ok = 1;
+		int ok = 1, defined = 1;
 
 		printf("%-3d %-16s", s + 1, suite[s]);
 		if (tree == NULL) {
@@ -249,12 +264,12 @@ static int run_suite(const struct options *opt)
 			failures++;
 			continue;
 		}
-		expect = ir_eval(tree);
+		expect = ir_eval(tree, &defined);
 		for (i = 0; i < NTARGETS; i++) {
 			struct run r;
 			if (!opt->use[i])
 				continue;
-			run_target(all_targets[i], tree, expect, 0, 1, &r, &ctx);
+			run_target(all_targets[i], tree, defined ? &expect : NULL, 0, 1, &r, &ctx);
 			printf("  %7d %6d", r.ninstr, r.cost);
 			ok &= r.covered && r.sim_ok;
 		}
@@ -269,19 +284,22 @@ static int run_suite(const struct options *opt)
 /*
  * Baseline for comparison: a naive selector that emits one instruction per
  * IR node (LOAD/LOADI or PUSH/PUSHI for leaves, the plain operator form for
- * interior nodes), with the same cost model -- 1 per instruction, MUL 2.
+ * interior nodes), with the same cost model -- 1 per instruction, MUL 2,
+ * DIV 3.
  * It never uses immediate or memory operand forms.
  */
 static int naive_cost(NODEPTR_TYPE p)
 {
 	if (p == NULL)
 		return 0;
-	return (p->op == MUL ? 2 : 1) + naive_cost(p->left) + naive_cost(p->right);
+	int own = p->op == MUL ? 2 : p->op == DIV ? 3 : 1;
+
+	return own + naive_cost(p->left) + naive_cost(p->right);
 }
 
 /*
  * Exhaustive small-tree check: every tree of depth <= 2 built from the
- * leaves {a, b, 3} and all four operators is run through every selected
+ * leaves {a, b, 3} and ADD, SUB, MUL and LOAD is run through every selected
  * target, and the simulated result must equal the IR reference value.
  * Subtrees are shared between trees; that is safe because a node's BURS
  * state depends only on the subtree below it.
@@ -312,7 +330,8 @@ static int run_exhaustive(const struct options *opt)
 	}
 
 	for (i = 0; i < ntrees; i++) {
-		long long expect = ir_eval(trees[i]);
+		int defined = 1;
+		long long expect = ir_eval(trees[i], &defined);
 		int naive = naive_cost(trees[i]);
 		ir_number(trees[i]);
 		totnaive += naive;
@@ -320,7 +339,7 @@ static int run_exhaustive(const struct options *opt)
 			struct run r;
 			if (!opt->use[k])
 				continue;
-			run_target(all_targets[k], trees[i], expect, 0, 1, &r, &ctx);
+			run_target(all_targets[k], trees[i], defined ? &expect : NULL, 0, 1, &r, &ctx);
 			checked++;
 			if (r.cost > maxcost[k])
 				maxcost[k] = r.cost;

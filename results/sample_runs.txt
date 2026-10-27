@@ -10,7 +10,7 @@ Test values  : a=2 b=3 c=4, mem[x]=1000+x
 Reference    : 14
 
 ========================================================================
-Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
 ========================================================================
 BURS cost table (bottom-up labeling, best rule per nonterminal):
     node               NT    best rule              cost
@@ -39,7 +39,7 @@ Total cover cost : 6   (5 instructions)
 Simulation       : result 14, reference 14   OK
 
 ========================================================================
-Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL.../DIV...)
 ========================================================================
 BURS cost table (bottom-up labeling, best rule per nonterminal):
     node               NT    best rule              cost
@@ -91,7 +91,7 @@ Test values  : a=2 b=3 c=4, mem[x]=1000+x
 Reference    : 20
 
 ========================================================================
-Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
 ========================================================================
 BURS cost table (bottom-up labeling, best rule per nonterminal):
     node               NT    best rule              cost
@@ -120,7 +120,7 @@ Total cover cost : 6   (5 instructions)
 Simulation       : result 20, reference 20   OK
 
 ========================================================================
-Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL.../DIV...)
 ========================================================================
 BURS cost table (bottom-up labeling, best rule per nonterminal):
     node               NT    best rule              cost
@@ -170,7 +170,7 @@ Test values  : a=2 b=3 c=4, mem[x]=1000+x
 Reference    : 9
 
 ========================================================================
-Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
 ========================================================================
 BURS cost table (bottom-up labeling, best rule per nonterminal):
     node               NT    best rule              cost
@@ -199,7 +199,7 @@ Total cover cost : 5   (5 instructions)
 Simulation       : result 9, reference 9   OK
 
 ========================================================================
-Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL.../DIV...)
 ========================================================================
 BURS cost table (bottom-up labeling, best rule per nonterminal):
     node               NT    best rule              cost
@@ -249,7 +249,7 @@ Test values  : a=2 b=3 c=4, mem[x]=1000+x
 Reference    : 14
 
 ========================================================================
-Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
 ========================================================================
 BURS cost table (bottom-up labeling, best rule per nonterminal):
     node               NT    best rule              cost
@@ -278,7 +278,7 @@ Total cover cost : 6   (5 instructions)
 Simulation       : result 14, reference 14   OK
 
 ========================================================================
-Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL.../DIV...)
 ========================================================================
 BURS cost table (bottom-up labeling, best rule per nonterminal):
     node               NT    best rule              cost
@@ -330,7 +330,7 @@ Test values  : a=2 b=3 c=4, mem[x]=1000+x
 Reference    : 3
 
 ========================================================================
-Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
 ========================================================================
 BURS cost table (bottom-up labeling, best rule per nonterminal):
     node               NT    best rule              cost
@@ -359,7 +359,7 @@ Total cover cost : 5   (5 instructions)
 Simulation       : result 3, reference 3   OK
 
 ========================================================================
-Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL.../DIV...)
 ========================================================================
 BURS cost table (bottom-up labeling, best rule per nonterminal):
     node               NT    best rule              cost
@@ -408,7 +408,7 @@ Test values  : a=2, mem[x]=1000+x
 Reference    : 1006
 
 ========================================================================
-Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
 ========================================================================
 BURS cost table (bottom-up labeling, best rule per nonterminal):
     node               NT    best rule              cost
@@ -434,7 +434,7 @@ Total cover cost : 3   (3 instructions)
 Simulation       : result 1006, reference 1006   OK
 
 ========================================================================
-Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL.../DIV...)
 ========================================================================
 BURS cost table (bottom-up labeling, best rule per nonterminal):
     node               NT    best rule              cost

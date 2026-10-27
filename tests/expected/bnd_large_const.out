@@ -10,7 +10,7 @@ Test values  : a=2, mem[x]=1000+x
 Reference    : 1000001
 
 ========================================================================
-Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
 ========================================================================
 Selected cover (backtracked from root, goal 'reg'):
     reg: SUB(reg,imm)                       n5    cost 1   SUBI  rd, ra, #k
@@ -29,7 +29,7 @@ Total cover cost : 5   (4 instructions)
 Simulation       : result 1000001, reference 1000001   OK
 
 ========================================================================
-Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL.../DIV...)
 ========================================================================
 Selected cover (backtracked from root, goal 'stk'):
     stk: SUB(stk,imm)                       n5    cost 1   SUBI  #k

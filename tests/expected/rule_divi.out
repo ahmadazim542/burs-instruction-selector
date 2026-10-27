@@ -1,0 +1,24 @@
+Expression   : a / 2
+IR (prefix)  : DIV(VAR a, CONST 2)
+IR tree      :
+    DIV   [n3]
+    |-- VAR a   [n1]
+    `-- CONST 2   [n2]
+Test values  : a=2, mem[x]=1000+x
+Reference    : 1
+
+========================================================================
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
+========================================================================
+Selected cover (backtracked from root, goal 'reg'):
+    reg: DIV(reg,imm)                       n3    cost 3   DIVI  rd, ra, #k
+    . reg: VAR                              n1    cost 1   LOAD  rd, [var]
+    . imm: CONST                            n2    cost 0   (operand #k, no code)
+
+Generated code:
+      1  LOAD r0,[a]
+      2  DIVI r1,r0,#2
+
+Total cover cost : 4   (2 instructions)
+Simulation       : result 1, reference 1   OK
+exit=0

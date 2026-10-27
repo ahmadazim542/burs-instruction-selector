@@ -1,0 +1,55 @@
+Expression   : (0 - 7) / 2
+IR (prefix)  : DIV(SUB(CONST 0, CONST 7), CONST 2)
+IR tree      :
+    DIV   [n5]
+    |-- SUB   [n3]
+    |   |-- CONST 0   [n1]
+    |   `-- CONST 7   [n2]
+    `-- CONST 2   [n4]
+Test values  : mem[x]=1000+x
+Reference    : -3
+
+========================================================================
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
+========================================================================
+Selected cover (backtracked from root, goal 'reg'):
+    reg: DIV(reg,imm)                       n5    cost 3   DIVI  rd, ra, #k
+    . reg: SUB(reg,imm)                     n3    cost 1   SUBI  rd, ra, #k
+    . . reg: CONST                          n1    cost 1   LOADI rd, #k
+    . . imm: CONST                          n2    cost 0   (operand #k, no code)
+    . imm: CONST                            n4    cost 0   (operand #k, no code)
+
+Generated code:
+      1  LOADI r0,#0
+      2  SUBI r1,r0,#7
+      3  DIVI r2,r1,#2
+
+Total cover cost : 5   (3 instructions)
+Simulation       : result -3, reference -3   OK
+
+========================================================================
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL.../DIV...)
+========================================================================
+Selected cover (backtracked from root, goal 'stk'):
+    stk: DIV(stk,imm)                       n5    cost 3   DIVI  #k
+    . stk: SUB(stk,imm)                     n3    cost 1   SUBI  #k
+    . . stk: imm                            n1    cost 1   PUSHI #k
+    . . . imm: CONST                        n1    cost 0   (operand #k, no code)
+    . . imm: CONST                          n2    cost 0   (operand #k, no code)
+    . imm: CONST                            n4    cost 0   (operand #k, no code)
+
+Generated code:
+      1  PUSHI #0
+      2  SUBI #7
+      3  DIVI #2
+
+Total cover cost : 5   (3 instructions)
+Simulation       : result -3, reference -3   OK
+
+------------------------------------------------------------------------
+Retargeting summary (same IR tree, same BURS engine):
+    target   instrs   cost   check
+    A        3        5      OK
+    B        3        5      OK
+------------------------------------------------------------------------
+exit=0

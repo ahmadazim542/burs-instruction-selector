@@ -13,7 +13,7 @@ the same tree and the same engine**:
 | | Target A | Target B |
 |---|---|---|
 | Machine | 3-address load/store register machine | 0-address stack machine |
-| Grammar | [`targetA.gr`](src/targets/targetA/targetA.gr), 9 rules | [`targetB.gr`](src/targets/targetB/targetB.gr), 14 rules |
+| Grammar | [`targetA.gr`](src/targets/targetA/targetA.gr), 11 rules | [`targetB.gr`](src/targets/targetB/targetB.gr), 17 rules |
 | Nonterminals | `reg`, `imm` | `stk`, `mem`, `imm` |
 | `a + b * c` | `LOAD r0,[a]` `LOAD r1,[b]` `LOAD r2,[c]` `MUL r3,r1,r2` `ADD r4,r0,r3` (cost 6) | `PUSH [a]` `PUSH [b]` `MULM [c]` `ADD` (cost 5) |
 
@@ -51,13 +51,16 @@ grammars, then compiles everything into `build/burs`.
 | `./build/burs --exhaustive` | runs every tree of depth ≤ 2 (3,333 trees) through both targets, and compares cost with a naive selector |
 | `./build/burs --bench` | times labeling on random trees from 405 to 240k nodes |
 | `./build/burs -i` | interactive: type expressions one per line, `quit` to exit |
-| `make test` | full regression suite (25 stored cases + suite + exhaustive) |
+| `make test` | full regression suite (31 stored cases + suite + exhaustive) |
 | `make results` | regenerate the evidence files in [`results/`](results) |
 
-**Expression syntax:** `+ - *`, integer constants, variable names, parentheses,
-and memory loads written `[e]` or `load(e)`. Precedence: `*` binds tighter than
-`+`/`-`; all are left-associative. `/`, unary minus and other operators are
-rejected with a clear error (exit status 2).
+**Expression syntax:** `+ - * /`, integer constants, variable names, parentheses,
+and memory loads written `[e]` or `load(e)`. Precedence: `*` and `/` bind tighter
+than `+`/`-`; all are left-associative. Division truncates toward zero, like C.
+Unary minus, `%` and other operators are rejected with a clear error (exit
+status 2). If an expression divides by zero with the current test values, code
+is still generated but the simulation check is not run (exit status 3); change
+the values with `-D`.
 
 ---
 
@@ -76,9 +79,9 @@ rejected with a clear error (exit status 2).
    instead of `LOADI` + `ADD` (cost 4).
 5. **Target B's memory operands:** `./build/burs -v -t B "(a + b) * c"` gives
    `PUSH [a]; ADDM [b]; MULM [c]` (cost 4). Target A needs 5 instructions (cost 6).
-6. **Invalid input:** `./build/burs "a / b"` and `./build/burs "(a + b"` give
+6. **Invalid input:** `./build/burs "a % b"` and `./build/burs "(a + b"` give
    a clear error with the column number.
-7. **Evidence of correctness:** `make test`, which ends with `27 passed, 0 failed`.
+7. **Evidence of correctness:** `make test`, which ends with `33 passed, 0 failed`.
 
 ---
 
@@ -87,7 +90,7 @@ rejected with a clear error (exit status 2).
 ```mermaid
 flowchart LR
     E["Expression<br/>a + b * c"] --> P["Parser<br/>src/ir"]
-    P --> T["IR tree<br/>CONST VAR ADD SUB MUL LOAD"]
+    P --> T["IR tree<br/>CONST VAR ADD SUB MUL DIV LOAD"]
     T --> L["BURS labeling<br/>(burg-generated, bottom-up DP)"]
     L --> C["Backtrack cover<br/>src/burs/engine.c"]
     C --> RA["Target A reduce()<br/>targetA.gr"] --> OA["ISA-A code"]
@@ -128,7 +131,7 @@ In Target B a variable is `mem` (cost 0, an operand) or `stk` (cost 1,
 `PUSH`). The parent picks whichever makes the total cheapest, which is why
 `b * c` becomes `PUSH [b]; MULM [c]` rather than two pushes and a `MUL`.
 
-### Target A: register machine (9 rules)
+### Target A: register machine (11 rules)
 
 | # | Rule | Cost | Emits |
 |---|---|---|---|
@@ -141,8 +144,10 @@ In Target B a variable is `mem` (cost 0, an operand) or `stk` (cost 1,
 | 7 | `reg: SUB(reg,reg)` | 1 | `SUB rd,ra,rb` |
 | 8 | `reg: SUB(reg,imm)` | 1 | `SUBI rd,ra,#k` |
 | 9 | `reg: MUL(reg,reg)` | 2 | `MUL rd,ra,rb` |
+| 10 | `reg: DIV(reg,reg)` | 3 | `DIV rd,ra,rb` |
+| 11 | `reg: DIV(reg,imm)` | 3 | `DIVI rd,ra,#k` |
 
-### Target B: stack machine (14 rules)
+### Target B: stack machine (17 rules)
 
 | # | Rule | Cost | Emits |
 |---|---|---|---|
@@ -154,6 +159,7 @@ In Target B a variable is `mem` (cost 0, an operand) or `stk` (cost 1,
 | 6–8 | `stk: ADD(stk, stk / mem / imm)` | 1 | `ADD` / `ADDM [var]` / `ADDI #k` |
 | 9–11 | `stk: SUB(stk, stk / mem / imm)` | 1 | `SUB` / `SUBM [var]` / `SUBI #k` |
 | 12–14 | `stk: MUL(stk, stk / mem / imm)` | 2 | `MUL` / `MULM [var]` / `MULI #k` |
+| 15–17 | `stk: DIV(stk, stk / mem / imm)` | 3 | `DIV` / `DIVM [var]` / `DIVI #k` |
 
 ---
 
@@ -198,10 +204,11 @@ and exit status) is compared byte-for-byte with
 
 | Category | Cases | Checks |
 |---|---|---|
-| Positive | the six review expressions | tree, cover, code, cost, simulation |
-| Boundary | single variable, single constant, 20-variable deep nesting, multi-letter names, nested loads, large constants | leaf handling; correct bottom-up order at depth |
-| Rule choice | `a + 7`, `7 + a`, `a - 1`, `a * b` (B), `a * 5` (B) | cheapest matching rule wins (ADDI, SUBI, MULM, MULI) |
-| Negative | `a / b`, `a + * b`, `(a + b`, `[a + b`, `a b`, `a * -b`, empty, `a + $` | clear error message, exit status 2 |
+| Positive | the six review expressions, `(a + b) / c`, a mixed expression with division | tree, cover, code, cost, simulation |
+| Boundary | single variable, single constant, 20-variable deep nesting, multi-letter names, nested loads, large constants, `(0 - 7) / 2` | leaf handling; correct bottom-up order at depth; division truncates toward zero |
+| Rule choice | `a + 7`, `7 + a`, `a - 1`, `a * b` (B), `a * 5` (B), `a / 2` (A), `a / b` (B) | cheapest matching rule wins (ADDI, SUBI, MULM, MULI, DIVI, DIVM) |
+| Negative | `a % b`, `a + * b`, `(a + b`, `[a + b`, `a b`, `a * -b`, empty, `a + $` | clear error message, exit status 2 |
+| Failure | `a / (b - b)` | code generated, value undefined (division by zero), check not run, exit status 3 |
 | Retargeting | every positive and boundary case runs on both targets | different valid code from the same IR |
 | Regression | `--suite` and `--exhaustive` | 10/10 suite, 0 exhaustive failures |
 
@@ -256,14 +263,15 @@ to `all_targets[]` in `main.c`. The IR, parser and engine do not change.
 | Define Target-B rule table | Done: 14 rules, stack ISA with memory and immediate operands |
 | Implement Target-B emitter | Done: `reduceB()` in `targetB.gr` |
 | Run all test expressions through Target B | Done: see Results |
-| Expand regression suite to both targets | Done: 25 stored cases + suite + exhaustive check |
+| Expand regression suite to both targets | Done: 31 stored cases + suite + exhaustive check |
 | Defect D3 (Target-B emitter missing) | Closed |
 | Push to team GitHub repository | Done: this repository |
 
 Known limitations (unchanged scope): expression trees only (no DAGs or
 statements), unlimited virtual registers (no register allocation or spilling),
 cost ties are settled once by burg's table generator, not at run time, no
-unary minus or division.
+unary minus or `%`. Division (`DIV`) was added after Review 3 preparation; the
+exhaustive check and the results in this README cover ADD/SUB/MUL/LOAD trees.
 
 ---
 

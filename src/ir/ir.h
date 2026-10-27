@@ -18,7 +18,8 @@ enum {
 	SUB   = 4,	/* left - right                        */
 	MUL   = 5,	/* left * right                        */
 	LOAD  = 6,	/* memory[left]          (unary)       */
-	IR_NUM_OPS = 6
+	DIV   = 7,	/* left / right, truncating toward zero */
+	IR_NUM_OPS = 7
 };
 
 #define IR_NAME_MAX 32
@@ -26,7 +27,7 @@ enum {
 typedef struct node *NODEPTR_TYPE;
 
 struct node {
-	int op;			/* one of CONST..LOAD                        */
+	int op;			/* one of CONST..DIV                         */
 	int state_label;	/* BURS state written by <target>_label()    */
 	int id;			/* postorder number n1, n2, ... (for output) */
 	long long ival;		/* CONST value                               */
@@ -46,6 +47,7 @@ NODEPTR_TYPE mk_var(const char *name);
 NODEPTR_TYPE mk_add(NODEPTR_TYPE l, NODEPTR_TYPE r);
 NODEPTR_TYPE mk_sub(NODEPTR_TYPE l, NODEPTR_TYPE r);
 NODEPTR_TYPE mk_mul(NODEPTR_TYPE l, NODEPTR_TYPE r);
+NODEPTR_TYPE mk_div(NODEPTR_TYPE l, NODEPTR_TYPE r);
 NODEPTR_TYPE mk_load(NODEPTR_TYPE addr);
 void freetree(NODEPTR_TYPE p);
 
@@ -63,7 +65,7 @@ void ir_draw(NODEPTR_TYPE p, FILE *out);
 /*
  * Parse an infix expression into IR.
  *   expr    := term (('+' | '-') term)*
- *   term    := primary ('*' primary)*
+ *   term    := primary (('*' | '/') primary)*
  *   primary := NUMBER | IDENT | '(' expr ')' | '[' expr ']' | load '(' expr ')'
  * '[e]' and 'load(e)' both build LOAD(e).  On failure returns NULL and
  * writes a message into err.
@@ -73,11 +75,14 @@ NODEPTR_TYPE ir_parse(const char *src, char *err, size_t errlen);
 /*
  * Reference semantics, used as the test oracle for generated code.
  * Variables a..z default to 2..27; other names hash to a small value.
- * Memory is modelled as mem[addr] = 1000 + addr.
+ * Memory is modelled as mem[addr] = 1000 + addr.  Division truncates
+ * toward zero, as in C; dividing by zero has no value, so ir_div() and
+ * ir_eval() report it through their return value / *ok flag.
  */
 int ir_set_var(const char *name, long long value);
 long long ir_var_value(const char *name);
 long long ir_mem_read(long long addr);
-long long ir_eval(NODEPTR_TYPE p);
+int ir_div(long long a, long long b, long long *q);
+long long ir_eval(NODEPTR_TYPE p, int *ok);
 
 #endif /* IR_H */

@@ -4,18 +4,23 @@ PASS  pos_a_plus_b_plus_c
 PASS  pos_a_mul_paren
 PASS  pos_a_minus_b_plus_c
 PASS  pos_load_plus_const
+PASS  pos_division
+PASS  pos_division_mixed
 PASS  bnd_single_var
 PASS  bnd_single_const
 PASS  bnd_deep_nesting
 PASS  bnd_named_vars
 PASS  bnd_nested_loads
 PASS  bnd_large_const
+PASS  bnd_div_truncates
 PASS  rule_addi_vs_loadi
 PASS  rule_const_on_left
 PASS  rule_subi
 PASS  rule_mem_operand
 PASS  rule_muli
-PASS  neg_division
+PASS  rule_divi
+PASS  rule_divm
+PASS  neg_modulo
 PASS  neg_missing_operand
 PASS  neg_unbalanced_paren
 PASS  neg_unbalanced_bracket
@@ -23,7 +28,8 @@ PASS  neg_trailing_token
 PASS  neg_unary_minus
 PASS  neg_empty
 PASS  neg_bad_char
+PASS  fail_div_by_zero
 PASS  burs --suite (10/10 expressions passed)
 PASS  burs --exhaustive (6666 target runs, 0 failures)
 
-27 passed, 0 failed
+33 passed, 0 failed

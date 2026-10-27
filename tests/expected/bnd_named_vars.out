@@ -10,7 +10,7 @@ Test values  : base=100 count=10, mem[x]=1000+x
 Reference    : 180
 
 ========================================================================
-Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
 ========================================================================
 Selected cover (backtracked from root, goal 'reg'):
     reg: ADD(reg,reg)                       n5    cost 1   ADD   rd, ra, rb
@@ -30,7 +30,7 @@ Total cover cost : 6   (5 instructions)
 Simulation       : result 180, reference 180   OK
 
 ========================================================================
-Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL...)
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL.../DIV...)
 ========================================================================
 Selected cover (backtracked from root, goal 'stk'):
     stk: ADD(stk,stk)                       n5    cost 1   ADD

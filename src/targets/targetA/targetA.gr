@@ -5,11 +5,12 @@
  *   LOAD  rd, [var]      rd <- value of variable
  *   LOAD  rd, [rs]       rd <- memory[rs]
  *   LOADI rd, #k         rd <- k
- *   ADD   rd, ra, rb     rd <- ra + rb          (also SUB, MUL)
- *   ADDI  rd, ra, #k     rd <- ra + k           (also SUBI)
+ *   ADD   rd, ra, rb     rd <- ra + rb          (also SUB, MUL, DIV)
+ *   ADDI  rd, ra, #k     rd <- ra + k           (also SUBI, DIVI)
  *
  * Unlimited virtual registers r0, r1, ... (no register allocation).
- * Costs: every instruction 1 except MUL, which is 2.
+ * Costs: every instruction 1, except MUL (2) and DIV / DIVI (3).
+ * DIV truncates toward zero; dividing by zero is a run-time error.
  *
  * burg reads the declarations and rules below and generates the matcher;
  * everything after the second %% is copied into the output unchanged.
@@ -21,7 +22,7 @@
 %}
 
 %start reg
-%term CONST=1 VAR=2 ADD=3 SUB=4 MUL=5 LOAD=6
+%term CONST=1 VAR=2 ADD=3 SUB=4 MUL=5 LOAD=6 DIV=7
 
 %%
 reg:	VAR		= 1 (1);
@@ -33,6 +34,8 @@ reg:	ADD(reg,imm)	= 6 (1);
 reg:	SUB(reg,reg)	= 7 (1);
 reg:	SUB(reg,imm)	= 8 (1);
 reg:	MUL(reg,reg)	= 9 (2);
+reg:	DIV(reg,reg)	= 10 (3);
+reg:	DIV(reg,imm)	= 11 (3);
 %%
 
 static const char *const ntA[] = {
@@ -52,6 +55,8 @@ static const RuleInfo rulesA[] = {
 	{ "reg: SUB(reg,reg)", 1, "SUB   rd, ra, rb" },
 	{ "reg: SUB(reg,imm)", 1, "SUBI  rd, ra, #k" },
 	{ "reg: MUL(reg,reg)", 2, "MUL   rd, ra, rb" },
+	{ "reg: DIV(reg,reg)", 3, "DIV   rd, ra, rb" },
+	{ "reg: DIV(reg,imm)", 3, "DIVI  rd, ra, #k" },
 };
 
 /* Emit code for one selected rule; kids[] holds the children's operands. */
@@ -74,9 +79,10 @@ static Operand reduceA(EmitCtx *ctx, NODEPTR_TYPE p, int rule, const Operand *k)
 		d = burs_new_reg(ctx);
 		burs_emit(ctx, "LOAD %s,[%s]", d.s, k[0].s);
 		return d;
-	case 5: case 6: case 7: case 8: case 9: {
+	case 5: case 6: case 7: case 8: case 9: case 10: case 11: {
 		static const char *const mnem[] = {
-			[5] = "ADD", [6] = "ADDI", [7] = "SUB", [8] = "SUBI", [9] = "MUL"
+			[5] = "ADD", [6] = "ADDI", [7] = "SUB", [8] = "SUBI", [9] = "MUL",
+			[10] = "DIV", [11] = "DIVI"
 		};
 		d = burs_new_reg(ctx);
 		burs_emit(ctx, "%s %s,%s,%s", mnem[rule], d.s, k[0].s, k[1].s);
@@ -145,7 +151,8 @@ static int simulateA(const EmitCtx *ctx, const Operand *result, long long *value
 			long long rhs;
 			if (!defined[s1])
 				return simfail(err, errlen, i + 1, "reads undefined", a[1]);
-			if (a[2][0] == '#' && (strcmp(op, "ADDI") == 0 || strcmp(op, "SUBI") == 0)) {
+			if (a[2][0] == '#' && (strcmp(op, "ADDI") == 0 || strcmp(op, "SUBI") == 0 ||
+					       strcmp(op, "DIVI") == 0)) {
 				rhs = strtoll(a[2] + 1, NULL, 10);
 			} else if ((s2 = regnum(a[2])) >= 0) {
 				if (!defined[s2])
@@ -160,7 +167,10 @@ static int simulateA(const EmitCtx *ctx, const Operand *result, long long *value
 				R[d] = R[s1] - rhs;
 			else if (strcmp(op, "MUL") == 0)
 				R[d] = R[s1] * rhs;
-			else
+			else if (strncmp(op, "DIV", 3) == 0) {
+				if (!ir_div(R[s1], rhs, &R[d]))
+					return simfail(err, errlen, i + 1, "division by zero in", line);
+			} else
 				return simfail(err, errlen, i + 1, "unknown opcode in", line);
 		} else {
 			return simfail(err, errlen, i + 1, "cannot execute", line);
@@ -175,10 +185,10 @@ static int simulateA(const EmitCtx *ctx, const Operand *result, long long *value
 
 const Target targetA = {
 	"A",
-	"3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL)",
+	"3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)",
 	burmA_reg_NT,
 	burmA_NT, ntA,
-	9, rulesA,
+	11, rulesA,
 	burmA_label, burmA_rule, burmA_nts, burmA_kids,
 	reduceA, simulateA,
 };

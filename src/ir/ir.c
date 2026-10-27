@@ -11,9 +11,9 @@
 #include "ir.h"
 
 static const char *const opnames[] = {
-	"?", "CONST", "VAR", "ADD", "SUB", "MUL", "LOAD"
+	"?", "CONST", "VAR", "ADD", "SUB", "MUL", "LOAD", "DIV"
 };
-static const int arities[] = { 0, 0, 0, 2, 2, 2, 1 };
+static const int arities[] = { 0, 0, 0, 2, 2, 2, 1, 2 };
 
 const char *ir_opname(int op)
 {
@@ -60,6 +60,7 @@ NODEPTR_TYPE mk_var(const char *name)
 NODEPTR_TYPE mk_add(NODEPTR_TYPE l, NODEPTR_TYPE r) { return mk_node(ADD, l, r); }
 NODEPTR_TYPE mk_sub(NODEPTR_TYPE l, NODEPTR_TYPE r) { return mk_node(SUB, l, r); }
 NODEPTR_TYPE mk_mul(NODEPTR_TYPE l, NODEPTR_TYPE r) { return mk_node(MUL, l, r); }
+NODEPTR_TYPE mk_div(NODEPTR_TYPE l, NODEPTR_TYPE r) { return mk_node(DIV, l, r); }
 NODEPTR_TYPE mk_load(NODEPTR_TYPE a) { return mk_node(LOAD, a, NULL); }
 
 void freetree(NODEPTR_TYPE p)
@@ -261,8 +262,8 @@ static NODEPTR_TYPE parse_primary(struct parser *ps)
 		}
 		return c == '[' ? mk_load(e) : e;
 	}
-	if (c == '/' || c == '%' || c == '^' || c == '&' || c == '|') {
-		fail(ps, "operator '%c' is not supported (IR has ADD, SUB, MUL, LOAD only)", c);
+	if (c == '%' || c == '^' || c == '&' || c == '|') {
+		fail(ps, "operator '%c' is not supported (IR has ADD, SUB, MUL, DIV, LOAD only)", c);
 		return NULL;
 	}
 	if (c == '-') {
@@ -278,15 +279,14 @@ static NODEPTR_TYPE parse_term(struct parser *ps)
 {
 	NODEPTR_TYPE l = parse_primary(ps);
 
-	while (l != NULL && peek(ps) == '*') {
-		NODEPTR_TYPE r;
-		ps->p++;
-		r = parse_primary(ps);
+	while (l != NULL && (peek(ps) == '*' || peek(ps) == '/')) {
+		int op = *ps->p++;
+		NODEPTR_TYPE r = parse_primary(ps);
 		if (r == NULL) {
 			freetree(l);
 			return NULL;
 		}
-		l = mk_mul(l, r);
+		l = op == '*' ? mk_mul(l, r) : mk_div(l, r);
 	}
 	return l;
 }
@@ -327,8 +327,8 @@ NODEPTR_TYPE ir_parse(const char *src, char *err, size_t errlen)
 	t = parse_expr(&ps);
 	if (t != NULL && peek(&ps) != '\0') {
 		describe(peek(&ps), what, sizeof what);
-		if (strchr("/%^&|", *ps.p))
-			fail(&ps, "operator '%c' is not supported (IR has ADD, SUB, MUL, LOAD only)", *ps.p);
+		if (strchr("%^&|", *ps.p))
+			fail(&ps, "operator '%c' is not supported (IR has ADD, SUB, MUL, DIV, LOAD only)", *ps.p);
 		else
 			fail(&ps, "unexpected %s after a complete expression", what);
 		freetree(t);
@@ -387,15 +387,33 @@ long long ir_mem_read(long long addr)
 	return 1000 + addr;
 }
 
-long long ir_eval(NODEPTR_TYPE p)
+/* q = a / b truncated toward zero; returns 0 when the quotient is undefined. */
+int ir_div(long long a, long long b, long long *q)
 {
+	if (b == 0 || (a == LLONG_MIN && b == -1))
+		return 0;
+	*q = a / b;
+	return 1;
+}
+
+/* Reference value of a tree; *ok becomes 0 if it divides by zero. */
+long long ir_eval(NODEPTR_TYPE p, int *ok)
+{
+	long long q;
+
 	switch (p->op) {
 	case CONST: return p->ival;
 	case VAR:   return ir_var_value(p->name);
-	case ADD:   return ir_eval(p->left) + ir_eval(p->right);
-	case SUB:   return ir_eval(p->left) - ir_eval(p->right);
-	case MUL:   return ir_eval(p->left) * ir_eval(p->right);
-	case LOAD:  return ir_mem_read(ir_eval(p->left));
+	case ADD:   return ir_eval(p->left, ok) + ir_eval(p->right, ok);
+	case SUB:   return ir_eval(p->left, ok) - ir_eval(p->right, ok);
+	case MUL:   return ir_eval(p->left, ok) * ir_eval(p->right, ok);
+	case LOAD:  return ir_mem_read(ir_eval(p->left, ok));
+	case DIV:
+		if (!ir_div(ir_eval(p->left, ok), ir_eval(p->right, ok), &q)) {
+			*ok = 0;
+			return 0;
+		}
+		return q;
 	}
 	return 0;
 }

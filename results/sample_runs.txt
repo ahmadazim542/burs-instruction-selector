@@ -469,3 +469,82 @@ Retargeting summary (same IR tree, same BURS engine):
 ------------------------------------------------------------------------
 
 
+Expression   : (a + b) / c
+IR (prefix)  : DIV(ADD(VAR a, VAR b), VAR c)
+IR tree      :
+    DIV   [n5]
+    |-- ADD   [n3]
+    |   |-- VAR a   [n1]
+    |   `-- VAR b   [n2]
+    `-- VAR c   [n4]
+Test values  : a=2 b=3 c=4, mem[x]=1000+x
+Reference    : 1
+
+========================================================================
+Target A : 3-address load/store register machine (LOAD/LOADI/ADD/ADDI/SUB/SUBI/MUL/DIV/DIVI)
+========================================================================
+BURS cost table (bottom-up labeling, best rule per nonterminal):
+    node               NT    best rule              cost
+    ----               --    ---------              ----
+    n1 VAR a           reg   reg: VAR                  1
+    n2 VAR b           reg   reg: VAR                  1
+    n3 ADD             reg   reg: ADD(reg,reg)         3
+    n4 VAR c           reg   reg: VAR                  1
+    n5 DIV             reg   reg: DIV(reg,reg)         7
+
+Selected cover (backtracked from root, goal 'reg'):
+    reg: DIV(reg,reg)                       n5    cost 3   DIV   rd, ra, rb
+    . reg: ADD(reg,reg)                     n3    cost 1   ADD   rd, ra, rb
+    . . reg: VAR                            n1    cost 1   LOAD  rd, [var]
+    . . reg: VAR                            n2    cost 1   LOAD  rd, [var]
+    . reg: VAR                              n4    cost 1   LOAD  rd, [var]
+
+Generated code:
+      1  LOAD r0,[a]
+      2  LOAD r1,[b]
+      3  ADD r2,r0,r1
+      4  LOAD r3,[c]
+      5  DIV r4,r2,r3
+
+Total cover cost : 7   (5 instructions)
+Simulation       : result 1, reference 1   OK
+
+========================================================================
+Target B : zero-address stack machine (PUSH/PUSHI/LOAD/ADD/ADDM/ADDI/SUB.../MUL.../DIV...)
+========================================================================
+BURS cost table (bottom-up labeling, best rule per nonterminal):
+    node               NT    best rule              cost
+    ----               --    ---------              ----
+    n1 VAR a           stk   stk: mem                  1
+                       mem   mem: VAR                  0
+    n2 VAR b           stk   stk: mem                  1
+                       mem   mem: VAR                  0
+    n3 ADD             stk   stk: ADD(stk,mem)         2
+    n4 VAR c           stk   stk: mem                  1
+                       mem   mem: VAR                  0
+    n5 DIV             stk   stk: DIV(stk,mem)         5
+
+Selected cover (backtracked from root, goal 'stk'):
+    stk: DIV(stk,mem)                       n5    cost 3   DIVM  [var]
+    . stk: ADD(stk,mem)                     n3    cost 1   ADDM  [var]
+    . . stk: mem                            n1    cost 1   PUSH  [var]
+    . . . mem: VAR                          n1    cost 0   (operand [var], no code)
+    . . mem: VAR                            n2    cost 0   (operand [var], no code)
+    . mem: VAR                              n4    cost 0   (operand [var], no code)
+
+Generated code:
+      1  PUSH [a]
+      2  ADDM [b]
+      3  DIVM [c]
+
+Total cover cost : 5   (3 instructions)
+Simulation       : result 1, reference 1   OK
+
+------------------------------------------------------------------------
+Retargeting summary (same IR tree, same BURS engine):
+    target   instrs   cost   check
+    A        5        7      OK
+    B        3        5      OK
+------------------------------------------------------------------------
+
+

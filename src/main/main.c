@@ -31,6 +31,7 @@ static const char *const suite[] = {
 	"7",
 	"a * 3 - 1",
 	"[a + 8] * [b]",
+	"(a + b) / c",
 };
 #define NSUITE (int)(sizeof suite / sizeof suite[0])
 
@@ -299,17 +300,19 @@ static int naive_cost(NODEPTR_TYPE p)
 
 /*
  * Exhaustive small-tree check: every tree of depth <= 2 built from the
- * leaves {a, b, 3} and ADD, SUB, MUL and LOAD is run through every selected
- * target, and the simulated result must equal the IR reference value.
- * Subtrees are shared between trees; that is safe because a node's BURS
- * state depends only on the subtree below it.
+ * leaves {a, b, 3} and ADD, SUB, MUL, DIV and LOAD is run through every
+ * selected target, and the simulated result must equal the IR reference
+ * value.  Trees that divide by zero with the test values have no reference
+ * value; they are counted and skipped.  Subtrees are shared between trees;
+ * that is safe because a node's BURS state depends only on the subtree
+ * below it.
  */
 static int run_exhaustive(const struct options *opt)
 {
-	enum { DEPTH = 2, MAXT = 4096 };
+	enum { DEPTH = 2, MAXT = 8192 };
 	static NODEPTR_TYPE trees[MAXT];
 	static EmitCtx ctx;
-	int ntrees, prev, d, i, j, k, checked = 0, failures = 0;
+	int ntrees, prev, d, i, j, k, checked = 0, failures = 0, ndefined = 0;
 	int maxcost[NTARGETS] = { 0 }, nfail[NTARGETS] = { 0 }, better[NTARGETS] = { 0 };
 	long totcost[NTARGETS] = { 0 }, totnaive = 0;
 
@@ -325,6 +328,7 @@ static int run_exhaustive(const struct options *opt)
 				trees[ntrees++] = mk_add(trees[i], trees[j]);
 				trees[ntrees++] = mk_sub(trees[i], trees[j]);
 				trees[ntrees++] = mk_mul(trees[i], trees[j]);
+				trees[ntrees++] = mk_div(trees[i], trees[j]);
 			}
 		}
 	}
@@ -333,13 +337,17 @@ static int run_exhaustive(const struct options *opt)
 		int defined = 1;
 		long long expect = ir_eval(trees[i], &defined);
 		int naive = naive_cost(trees[i]);
+
+		if (!defined)
+			continue;
+		ndefined++;
 		ir_number(trees[i]);
 		totnaive += naive;
 		for (k = 0; k < NTARGETS; k++) {
 			struct run r;
 			if (!opt->use[k])
 				continue;
-			run_target(all_targets[k], trees[i], defined ? &expect : NULL, 0, 1, &r, &ctx);
+			run_target(all_targets[k], trees[i], &expect, 0, 1, &r, &ctx);
 			checked++;
 			if (r.cost > maxcost[k])
 				maxcost[k] = r.cost;
@@ -355,19 +363,21 @@ static int run_exhaustive(const struct options *opt)
 			}
 		}
 	}
-	printf("Exhaustive check: %d trees (depth <= %d over a, b, 3 with ADD/SUB/MUL/LOAD)\n",
+	printf("Exhaustive check: %d trees (depth <= %d over a, b, 3 with ADD/SUB/MUL/DIV/LOAD)\n",
 	       ntrees, DEPTH);
+	printf("    %d checked; %d skipped (divide by zero with a=2, b=3)\n",
+	       ndefined, ntrees - ndefined);
 	for (k = 0; k < NTARGETS; k++)
 		if (opt->use[k])
 			printf("    target %s: %d failures, max cover cost %d\n",
 			       all_targets[k]->id, nfail[k], maxcost[k]);
 	printf("Cost vs naive one-instruction-per-node selection (same cost model):\n");
-	printf("    naive baseline : average cost %.2f\n", (double)totnaive / ntrees);
+	printf("    naive baseline : average cost %.2f\n", (double)totnaive / ndefined);
 	for (k = 0; k < NTARGETS; k++)
 		if (opt->use[k])
 			printf("    BURS target %s : average cost %.2f  (%.1f%% lower; cheaper on %d of %d trees)\n",
-			       all_targets[k]->id, (double)totcost[k] / ntrees,
-			       100.0 * (totnaive - totcost[k]) / totnaive, better[k], ntrees);
+			       all_targets[k]->id, (double)totcost[k] / ndefined,
+			       100.0 * (totnaive - totcost[k]) / totnaive, better[k], ndefined);
 	printf("%d target runs, %d failures\n", checked, failures);
 	return failures ? EXIT_CHECK : 0;
 }
@@ -388,10 +398,11 @@ static NODEPTR_TYPE random_tree(int depth, unsigned *seed)
 		return r % 3 == 0 ? mk_const(r % 10) : mk_var(names[r % 4]);
 	if (r % 8 == 0)
 		return mk_load(random_tree(depth - 1, seed));
-	switch (r % 3) {
+	switch (r % 4) {
 	case 0:  return mk_add(random_tree(depth - 1, seed), random_tree(depth - 1, seed));
 	case 1:  return mk_sub(random_tree(depth - 1, seed), random_tree(depth - 1, seed));
-	default: return mk_mul(random_tree(depth - 1, seed), random_tree(depth - 1, seed));
+	case 2:  return mk_mul(random_tree(depth - 1, seed), random_tree(depth - 1, seed));
+	default: return mk_div(random_tree(depth - 1, seed), random_tree(depth - 1, seed));
 	}
 }
 

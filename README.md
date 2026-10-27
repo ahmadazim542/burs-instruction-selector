@@ -48,7 +48,7 @@ grammars, then compiles everything into `build/burs`.
 | `./build/burs -D a=10 "a * a"` | set variable values used by the simulation check |
 | `./build/burs --rules` | rule tables (pattern, cost, instruction template) for both targets |
 | `./build/burs --suite` | summary table for the review sample expressions |
-| `./build/burs --exhaustive` | runs every tree of depth ≤ 2 (3,333 trees) through both targets, and compares cost with a naive selector |
+| `./build/burs --exhaustive` | runs every tree of depth ≤ 2 (7,140 trees) through both targets, and compares cost with a naive selector |
 | `./build/burs --bench` | times labeling on random trees from 405 to 240k nodes |
 | `./build/burs -i` | interactive: type expressions one per line, `quit` to exit |
 | `make test` | full regression suite (31 stored cases + suite + exhaustive) |
@@ -176,20 +176,23 @@ test values `a=2, b=3, c=4`, `mem[x] = 1000 + x`):
 | `a * (b + c)` | `LOAD r0,[a]; LOAD r1,[b]; LOAD r2,[c]; ADD r3,r1,r2; MUL r4,r0,r3` | 6 | `PUSH [a]; PUSH [b]; ADDM [c]; MUL` | 5 | 14 ✓ |
 | `a - b + c` | `LOAD r0,[a]; LOAD r1,[b]; SUB r2,r0,r1; LOAD r3,[c]; ADD r4,r2,r3` | 5 | `PUSH [a]; SUBM [b]; ADDM [c]` | 3 | 3 ✓ |
 | `load(a) + 4` | `LOAD r0,[a]; LOAD r1,[r0]; ADDI r2,r1,#4` | 3 | `PUSH [a]; LOAD; ADDI #4` | 3 | 1006 ✓ |
+| `(a + b) / c` | `LOAD r0,[a]; LOAD r1,[b]; ADD r2,r0,r1; LOAD r3,[c]; DIV r4,r2,r3` | 7 | `PUSH [a]; ADDM [b]; DIVM [c]` | 5 | 1 ✓ |
 
 The Target A sequences and costs are identical to those recorded in the Review 2
 document (Section 13). Target B, which was pending at Review 2, is now complete.
 
 Exhaustive check ([`results/exhaustive_check.txt`](results/exhaustive_check.txt)):
-all 3,333 trees of depth ≤ 2 over `{a, b, 3}` with ADD/SUB/MUL/LOAD are covered
-by both targets, and all 6,666 generated programs simulate to the IR value.
-Over the same trees, a naive one-instruction-per-node selector (same cost
-model) averages cost 7.26. BURS averages **6.88 on Target A (5.2% lower)** and
-**5.55 on Target B (23.6% lower)**. Target B gains more because its memory
+all 7,140 trees of depth ≤ 2 over `{a, b, 3}` with ADD/SUB/MUL/DIV/LOAD are
+generated; the 6,846 whose value is defined with the test values are covered by
+both targets, and all 13,692 generated programs simulate to the IR value. The
+other 294 trees divide by zero (e.g. `a / (b - b)`) and are skipped.
+Over the checked trees, a naive one-instruction-per-node selector (same cost
+model) averages cost 8.49. BURS averages **8.05 on Target A (5.1% lower)** and
+**6.72 on Target B (20.9% lower)**. Target B gains more because its memory
 operands remove most `PUSH` instructions.
 
 Benchmark ([`results/benchmark.txt`](results/benchmark.txt)): labeling plus the
-cover-cost backtrack takes roughly 10–20 ns per node from 405 to 240k nodes,
+cover-cost backtrack takes roughly 9–21 ns per node from 405 to 240k nodes,
 i.e. linear time, because burg precomputes all the dynamic programming into
 tables.
 
@@ -210,7 +213,7 @@ and exit status) is compared byte-for-byte with
 | Negative | `a % b`, `a + * b`, `(a + b`, `[a + b`, `a b`, `a * -b`, empty, `a + $` | clear error message, exit status 2 |
 | Failure | `a / (b - b)` | code generated, value undefined (division by zero), check not run, exit status 3 |
 | Retargeting | every positive and boundary case runs on both targets | different valid code from the same IR |
-| Regression | `--suite` and `--exhaustive` | 10/10 suite, 0 exhaustive failures |
+| Regression | `--suite` and `--exhaustive` | 11/11 suite, 0 exhaustive failures |
 
 **Test oracles** (from Review 1 §12.1): the tree printout must match the input
 structure, the cover cost equals the sum of selected rule costs, the code must
@@ -260,18 +263,19 @@ to `all_targets[]` in `main.c`. The IR, parser and engine do not change.
 
 | Review 2 pending item | Status |
 |---|---|
-| Define Target-B rule table | Done: 14 rules, stack ISA with memory and immediate operands |
+| Define Target-B rule table | Done: stack ISA with memory and immediate operands (now 17 rules, incl. DIV) |
 | Implement Target-B emitter | Done: `reduceB()` in `targetB.gr` |
 | Run all test expressions through Target B | Done: see Results |
 | Expand regression suite to both targets | Done: 31 stored cases + suite + exhaustive check |
 | Defect D3 (Target-B emitter missing) | Closed |
 | Push to team GitHub repository | Done: this repository |
 
-Known limitations (unchanged scope): expression trees only (no DAGs or
-statements), unlimited virtual registers (no register allocation or spilling),
-cost ties are settled once by burg's table generator, not at run time, no
-unary minus or `%`. Division (`DIV`) was added after Review 3 preparation; the
-exhaustive check and the results in this README cover ADD/SUB/MUL/LOAD trees.
+Scope extension: division (`DIV`, with `DIVI` and `DIVM` operand forms) was
+added on top of the Review 1 node set.
+
+Known limitations: expression trees only (no DAGs or statements), unlimited
+virtual registers (no register allocation or spilling), cost ties are settled
+once by burg's table generator, not at run time, no unary minus or `%`.
 
 ---
 

@@ -29,7 +29,7 @@ PASS  neg_unary_minus
 PASS  neg_empty
 PASS  neg_bad_char
 PASS  fail_div_by_zero
-PASS  burs --suite (10/10 expressions passed)
-PASS  burs --exhaustive (6666 target runs, 0 failures)
+PASS  burs --suite (11/11 expressions passed)
+PASS  burs --exhaustive (13692 target runs, 0 failures)
 
 33 passed, 0 failed

@@ -12,5 +12,6 @@ Review sample expressions -- cover cost / instruction count per target
 8   7                       1      1        1      1  PASS
 9   a * 3 - 1               4      5        3      4  PASS
 10  [a + 8] * [b]           6      7        6      7  PASS
+11  (a + b) / c             5      7        3      5  PASS
 
-10/10 expressions passed
+11/11 expressions passed

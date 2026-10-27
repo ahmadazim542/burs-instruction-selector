@@ -1,8 +1,9 @@
-Exhaustive check: 3333 trees (depth <= 2 over a, b, 3 with ADD/SUB/MUL/LOAD)
-    target A: 0 failures, max cover cost 10
-    target B: 0 failures, max cover cost 8
+Exhaustive check: 7140 trees (depth <= 2 over a, b, 3 with ADD/SUB/MUL/DIV/LOAD)
+    6846 checked; 294 skipped (divide by zero with a=2, b=3)
+    target A: 0 failures, max cover cost 13
+    target B: 0 failures, max cover cost 11
 Cost vs naive one-instruction-per-node selection (same cost model):
-    naive baseline : average cost 7.26
-    BURS target A : average cost 6.88  (5.2% lower; cheaper on 1146 of 3333 trees)
-    BURS target B : average cost 5.55  (23.6% lower; cheaper on 3267 of 3333 trees)
-6666 target runs, 0 failures
+    naive baseline : average cost 8.49
+    BURS target A : average cost 8.05  (5.1% lower; cheaper on 2655 of 6846 trees)
+    BURS target B : average cost 6.72  (20.9% lower; cheaper on 6762 of 6846 trees)
+13692 target runs, 0 failures

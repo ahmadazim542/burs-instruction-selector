@@ -14,7 +14,7 @@ $BURS --bench                >"$OUT/benchmark.txt"
 sh tests/run_tests.sh        >"$OUT/test_report.txt" 2>&1
 
 : >"$OUT/sample_runs.txt"
-for e in "a + b * c" "(a + b) * c" "a + b + c" "a * (b + c)" "a - b + c" "load(a) + 4"; do
+for e in "a + b * c" "(a + b) * c" "a + b + c" "a * (b + c)" "a - b + c" "load(a) + 4" "(a + b) / c"; do
 	$BURS -v "$e" >>"$OUT/sample_runs.txt"
 	printf '\n\n' >>"$OUT/sample_runs.txt"
 done
